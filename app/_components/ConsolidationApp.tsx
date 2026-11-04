@@ -6,6 +6,7 @@ import { useReducer, useState } from "react";
 import {
   chooseSheet,
   conditionsBlockedReason,
+  decisionsToSettings,
   initialDecisions,
   pickKeyColumn,
   pickRow,
@@ -13,6 +14,7 @@ import {
 } from "../_lib/conditions";
 import { createWorkbookReader } from "../_lib/excel/workbookReader";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
+import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
 import { readSelection } from "../_lib/readSelection";
 import type { ConditionDecisions, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
@@ -24,6 +26,7 @@ import { StepNavigation } from "./StepNavigation";
 import { StepPlaceholder } from "./StepPlaceholder";
 import { ConditionStep } from "./steps/ConditionStep";
 import { FileSelectStep } from "./steps/FileSelectStep";
+import { InspectionStep } from "./steps/InspectionStep";
 
 // 1단계에서 고른 파일과 체크 상태
 type Selection = {
@@ -55,19 +58,39 @@ export function ConsolidationApp() {
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [conditions, setConditions] = useState<Conditions | null>(null);
+  const [inspection, setInspection] = useState<Inspection | null>(null);
   const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일과 정한 조건도 모두 비운다.
   function move(type: "next" | "prev" | "reset") {
     dispatch({ type });
+    // 3단계를 건너뛰고 온 4단계에서 [이전]을 누르면 보지 않은 3단계가 아니라 2단계로 돌아간다.
+    if (type === "prev" && state.step === 4 && inspection && !inspection.needsReview) dispatch({ type });
     setError(null);
     if (type === "reset") {
       setSelection(emptySelection);
       setAnalysis(null);
       setConditions(null);
+      setInspection(null);
     }
     window.scrollTo({ top: 0 });
+  }
+
+  // 2단계의 [취합 시작]: 먼저 파일을 점검한다. 사용자가 판단할 것이 없으면 3단계를 건너뛰고 바로 4단계로 간다. (DESIGN 3단계)
+  function startInspection() {
+    const settings = conditions ? decisionsToSettings(conditions.decisions) : null;
+    if (!analysis || !settings) return;
+    const result = inspectAll({
+      representative: analysis.representative,
+      master: analysis.master,
+      departments: analysis.departments,
+      unreadable: analysis.unreadable,
+      settings,
+    });
+    setInspection(result);
+    move("next");
+    if (!result.needsReview) dispatch({ type: "next" });
   }
 
   function updateSelection(update: (current: Selection) => Selection) {
@@ -109,6 +132,7 @@ export function ConsolidationApp() {
   if (reading) blockedReason = `파일을 읽는 중입니다… (${reading.done} / ${reading.total})`;
   else if (state.step === 1) blockedReason = analysisBlockedReason(selection.master, selection.departments);
   else if (state.step === 2) blockedReason = conditions ? conditionsBlockedReason(conditions.decisions) : "조건을 정할 파일이 없습니다.";
+  else if (state.step === 3 && !inspection?.canContinue) blockedReason = "취합할 수 있는 부서 파일이 없어 계속할 수 없습니다.";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -181,17 +205,7 @@ export function ConsolidationApp() {
             }
           />
         )}
-        {state.step === 3 && (
-          <StepPlaceholder
-            title="3단계. 점검·중복 선택"
-            description="취합할 수 없는 파일과 중복된 키를 확인하고, 중복 키의 처리 방법을 고릅니다."
-            items={[
-              "취합에서 제외된 파일과 이유 (헤더 다름, 병합 셀, 읽기 실패)",
-              "중복된 키와 처리 방법 선택 (첫 번째 값, 마지막 값, 모두 나열, 비워 두기)",
-            ]}
-            plannedTask="PLAN.md 15번, 16번 작업"
-          />
-        )}
+        {state.step === 3 && inspection && <InspectionStep inspection={inspection} />}
         {state.step === 4 && (
           <StepPlaceholder
             title="4단계. 결과"
@@ -210,8 +224,9 @@ export function ConsolidationApp() {
         step={state.step}
         canGoNext={blockedReason === null}
         blockedReason={blockedReason ?? undefined}
+        nextLabel={state.step === 3 && inspection && inspection.excludedFiles.length > 0 ? "제외하고 계속" : undefined}
         onPrev={() => move("prev")}
-        onNext={() => (state.step === 1 ? void startAnalysis() : move("next"))}
+        onNext={() => (state.step === 1 ? void startAnalysis() : state.step === 2 ? startInspection() : move("next"))}
         onReset={() => move("reset")}
       />
 

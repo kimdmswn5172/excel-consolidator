@@ -6,6 +6,7 @@ type Props = {
   step: AppStep;
   canGoNext: boolean;
   blockedReason?: string; // [다음]이 눌리지 않을 때 보여 줄 이유
+  nextLabel?: string; // 버튼 글자를 단계 기본값 대신 쓰고 싶을 때 (예: 3단계의 [제외하고 계속])
   onPrev: () => void;
   onNext: () => void;
   onReset: () => void;
@@ -16,7 +17,7 @@ const secondaryButton =
 const primaryButton =
   "rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500";
 
-export function StepNavigation({ step, canGoNext, blockedReason, onPrev, onNext, onReset }: Props) {
+export function StepNavigation({ step, canGoNext, blockedReason, nextLabel, onPrev, onNext, onReset }: Props) {
   return (
     <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800" aria-label="단계 이동">
       <div>
@@ -37,7 +38,7 @@ export function StepNavigation({ step, canGoNext, blockedReason, onPrev, onNext,
               <p className="text-sm text-zinc-500 dark:text-zinc-400">{blockedReason}</p>
             )}
             <button type="button" onClick={onNext} disabled={!canGoNext} className={primaryButton}>
-              {NEXT_LABELS[step]} →
+              {nextLabel ?? NEXT_LABELS[step]} →
             </button>
           </>
         )}
