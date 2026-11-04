@@ -1,24 +1,39 @@
 "use client";
 
 // 서비스 전체 화면: 한 페이지 안에서 4단계가 차례로 바뀐다. (DESIGN 1번 화면 구성)
-// 지금은 단계 흐름만 있는 뼈대이고, 각 단계의 내용은 PLAN.md 12번부터 채운다.
-import { useReducer } from "react";
+// 1단계(파일 선택)는 PLAN.md 12번에서 만들었고, 2~4단계는 아직 뼈대다.
+import { useReducer, useState } from "react";
+import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { StepIndicator } from "./StepIndicator";
 import { StepNavigation } from "./StepNavigation";
 import { StepPlaceholder } from "./StepPlaceholder";
+import { FileSelectStep } from "./steps/FileSelectStep";
+
+// 1단계에서 고른 파일과 체크 상태
+type Selection = {
+  master: File | null;
+  departments: File[];
+  containsPersonalInfo: boolean;
+  notices: string[]; // 넣지 못한 파일 안내 (다음 선택을 하면 새로 바뀐다)
+};
+
+const emptySelection: Selection = { master: null, departments: [], containsPersonalInfo: false, notices: [] };
 
 export function ConsolidationApp() {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
+  const [selection, setSelection] = useState<Selection>(emptySelection);
 
-  // 단계가 바뀌면 화면 맨 위부터 보이게 한다.
+  // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일도 비운다.
   function move(type: "next" | "prev" | "reset") {
     dispatch({ type });
+    if (type === "reset") setSelection(emptySelection);
     window.scrollTo({ top: 0 });
   }
 
-  // 뼈대 단계에서는 어느 단계든 넘어갈 수 있다. 실제 조건(파일 선택 여부, 항목 확정 여부)은 각 단계를 만들 때 연결한다.
-  const canGoNext = true;
+  // 단계별로 [다음]을 누를 수 있는지. 2~4단계의 조건은 각 단계를 만들 때 연결한다.
+  const blockedReason = state.step === 1 ? analysisBlockedReason(selection.master, selection.departments) : null;
+  const canGoNext = blockedReason === null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -31,15 +46,38 @@ export function ConsolidationApp() {
 
       <main className="flex-1 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
         {state.step === 1 && (
-          <StepPlaceholder
-            title="1단계. 파일 선택"
-            description="마스터 표와 부서별 엑셀 파일을 고르고, 개인정보 포함 여부를 체크합니다."
-            items={[
-              "마스터 표 선택 (.xlsx)",
-              "부서 파일 선택 또는 끌어다 놓기, 폴더 선택 (최대 50개)",
-              "개인정보 포함 여부 체크 (체크하면 AI에는 열 이름만 보냅니다)",
-            ]}
-            plannedTask="PLAN.md 12번 작업"
+          <FileSelectStep
+            master={selection.master}
+            departments={selection.departments}
+            containsPersonalInfo={selection.containsPersonalInfo}
+            notices={selection.notices}
+            onSelectMaster={(file) =>
+              setSelection((current) => {
+                const result = selectMasterFile(file, current.departments);
+                return {
+                  ...current,
+                  master: result.master ?? current.master,
+                  departments: result.departments,
+                  notices: result.notices,
+                };
+              })
+            }
+            onClearMaster={() => setSelection((current) => ({ ...current, master: null, notices: [] }))}
+            onAddDepartments={(files, fromFolder) =>
+              setSelection((current) => {
+                const result = addDepartmentFiles(current.departments, files, current.master, { fromFolder });
+                return { ...current, departments: result.files, notices: result.notices };
+              })
+            }
+            onRemoveDepartment={(index) =>
+              setSelection((current) => ({
+                ...current,
+                departments: current.departments.filter((_, i) => i !== index),
+                notices: [],
+              }))
+            }
+            onClearDepartments={() => setSelection((current) => ({ ...current, departments: [], notices: [] }))}
+            onPersonalInfoChange={(checked) => setSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
           />
         )}
         {state.step === 2 && (
@@ -82,6 +120,7 @@ export function ConsolidationApp() {
       <StepNavigation
         step={state.step}
         canGoNext={canGoNext}
+        blockedReason={blockedReason ?? undefined}
         onPrev={() => move("prev")}
         onNext={() => move("next")}
         onReset={() => move("reset")}
