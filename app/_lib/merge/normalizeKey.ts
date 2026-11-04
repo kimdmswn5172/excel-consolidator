@@ -28,3 +28,11 @@ export function normalizeKey(value: CellValue): string | null {
   const normalized = text.normalize("NFKC").replace(INVISIBLE, "").trim().toLowerCase();
   return normalized === "" ? null : normalized;
 }
+
+// 화면의 목록에 보여 줄 키 글자. 원래 값을 그대로 보여 주되 앞뒤 공백만 뺀다.
+// (대소문자와 전각 문자는 바꾸지 않아서 사용자가 엑셀에서 본 모양 그대로 나온다)
+export function displayKey(value: CellValue): string {
+  if (value === null) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).trim();
+}
