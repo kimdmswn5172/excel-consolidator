@@ -11,11 +11,13 @@ import {
   pickRow,
   toggleTargetColumn,
 } from "../_lib/conditions";
+import { createWorkbookReader } from "../_lib/excel/workbookReader";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
 import { readSelection } from "../_lib/readSelection";
 import type { ConditionDecisions, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
+import { ProgressPanel } from "./ProgressPanel";
 import type { PickMode } from "./SheetPreview";
 import { StepIndicator } from "./StepIndicator";
 import { StepNavigation } from "./StepNavigation";
@@ -53,7 +55,7 @@ export function ConsolidationApp() {
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [conditions, setConditions] = useState<Conditions | null>(null);
-  const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
+  const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일과 정한 조건도 모두 비운다.
@@ -74,10 +76,18 @@ export function ConsolidationApp() {
   }
 
   // [분석 시작]: 고른 파일을 브라우저 안에서 읽고 2단계로 넘어간다.
+  // 파일은 별도 작업 공간(Web Worker)에서 읽어서, 큰 파일을 읽는 동안에도 화면과 진행 표시가 멈추지 않는다.
   async function startAnalysis() {
-    if (!selection.master) return;
+    if (!selection.master || reading) return;
     setError(null);
-    const result = await readSelection(selection.master, selection.departments, (done, total) => setReading({ done, total }));
+    setReading({ done: 0, total: selection.departments.length + 1 });
+    const reader = createWorkbookReader();
+    const result = await readSelection(
+      selection.master,
+      selection.departments,
+      (done, total) => setReading((current) => ({ ...current, done, total })),
+      { read: reader.read, onFileStart: (fileName) => setReading((current) => (current ? { ...current, current: fileName } : current)) },
+    ).finally(() => reader.dispose());
     setReading(null);
     if (!result.ok) {
       setError(result.message);
@@ -112,7 +122,9 @@ export function ConsolidationApp() {
       <main className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
         {error && <AlertBox tone="error">{error}</AlertBox>}
 
-        {state.step === 1 && (
+        {reading && <ProgressPanel title="파일을 읽는 중입니다" done={reading.done} total={reading.total} current={reading.current} />}
+
+        {state.step === 1 && !reading && (
           <FileSelectStep
             master={selection.master}
             departments={selection.departments}
