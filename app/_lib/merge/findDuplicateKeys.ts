@@ -4,7 +4,8 @@
 //   - 마스터 안에 같은 키가 2건 이상 (마스터 안 중복)
 //   - 부서 파일들 전체에서 같은 키가 2건 이상 (한 파일 안 중복 + 파일 사이 중복)
 import type { ConsolidationSettings, DuplicateKey, KeyOccurrence, WorkbookData } from "../types";
-import { displayKey, normalizeKey } from "./normalizeKey";
+import { listDataRows } from "./dataRows";
+import { displayKey } from "./normalizeKey";
 
 // 중복을 찾는 데 필요한 조건만 골라 쓴다
 export type KeySettings = Pick<ConsolidationSettings, "sheetName" | "keyColumn" | "dataStartRow">;
@@ -16,18 +17,11 @@ function collectKeys(workbook: WorkbookData, settings: KeySettings): Found[] {
   const sheet = workbook.sheets.find((candidate) => candidate.name === settings.sheetName);
   if (!sheet) return [];
 
-  const found: Found[] = [];
-  for (let row = settings.dataStartRow; row <= sheet.rowCount; row++) {
-    const raw = sheet.cells[row - 1]?.[settings.keyColumn - 1] ?? null;
-    const key = normalizeKey(raw);
-    if (key === null) continue;
-    found.push({
-      key,
-      display: displayKey(raw),
-      occurrence: { fileName: workbook.fileName, sheetName: sheet.name, row },
-    });
-  }
-  return found;
+  return listDataRows(sheet, settings).map(({ row, key, raw }) => ({
+    key,
+    display: displayKey(raw),
+    occurrence: { fileName: workbook.fileName, sheetName: sheet.name, row },
+  }));
 }
 
 type Group = { display: string; master: KeyOccurrence[]; departments: KeyOccurrence[] };

@@ -10,7 +10,7 @@
 //   - 기준 열도 취합 대상 열도 아닌 열의 병합
 import { formatRange } from "../excel/a1";
 import type { ConsolidationSettings, MergedRange, SheetData, SkippedFile, WorkbookData } from "../types";
-import { normalizeKey } from "./normalizeKey";
+import { listDataRows } from "./dataRows";
 
 export type MergeRiskKind = "header" | "key-column" | "target-columns";
 
@@ -28,27 +28,11 @@ function columnsOverlap(range: MergedRange, columns: number[]): boolean {
   return columns.some((column) => column >= range.startCol && column <= range.endCol);
 }
 
-// 기준 열의 칸이 가로로 여러 열에 걸쳐 병합되어 있는지. (데이터 아래 안내 문구가 이런 모양이다)
-// 키는 한 칸에 하나씩 들어가므로, 가로로 병합된 칸은 키로 보지 않는다.
-function isSpreadAcrossColumns(sheet: SheetData, row: number, column: number): boolean {
-  return sheet.merges.some(
-    (merge) =>
-      merge.endCol > merge.startCol &&
-      row >= merge.startRow &&
-      row <= merge.endRow &&
-      column >= merge.startCol &&
-      column <= merge.endCol,
-  );
-}
-
 // 데이터가 끝나는 행: 기준 열에 키가 들어 있는 마지막 행.
 // (세로 병합된 칸의 나머지 부분은 키가 비어 있어 들어가지 않고, 가로로 병합된 안내 문구도 키로 세지 않는다)
 function lastDataRow(sheet: SheetData, settings: ConsolidationSettings): number {
-  for (let row = sheet.rowCount; row >= settings.dataStartRow; row--) {
-    const key = normalizeKey(sheet.cells[row - 1]?.[settings.keyColumn - 1] ?? null);
-    if (key !== null && !isSpreadAcrossColumns(sheet, row, settings.keyColumn)) return row;
-  }
-  return settings.dataStartRow - 1; // 데이터가 하나도 없음
+  const rows = listDataRows(sheet, settings);
+  return rows.length > 0 ? rows[rows.length - 1].row : settings.dataStartRow - 1; // 데이터가 하나도 없으면 시작 행 바로 위
 }
 
 // 파일 하나에서 위험한 병합 셀을 모두 찾는다. 지정한 시트가 없으면 빈 목록이다. (시트 문제는 헤더 점검이 알려 준다)
