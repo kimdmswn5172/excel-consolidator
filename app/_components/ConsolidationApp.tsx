@@ -14,20 +14,25 @@ import {
 } from "../_lib/conditions";
 import { createWorkbookReader } from "../_lib/excel/workbookReader";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
+import { buildResultFileInWorker } from "../_lib/excel/resultBuilder";
+import { resultFileName } from "../_lib/excel/writeResult";
+import { downloadFile } from "../_lib/excel/download";
+import { consolidate, type AppliedValue } from "../_lib/merge/consolidate";
 import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
+import { buildConsolidationResult } from "../_lib/merge/summarize";
 import { readSelection } from "../_lib/readSelection";
 import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
-import type { ConditionDecisions, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
+import type { ConditionDecisions, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
 import { ProgressPanel } from "./ProgressPanel";
 import type { PickMode } from "./SheetPreview";
 import { StepIndicator } from "./StepIndicator";
 import { StepNavigation } from "./StepNavigation";
-import { StepPlaceholder } from "./StepPlaceholder";
 import { ConditionStep } from "./steps/ConditionStep";
 import { FileSelectStep } from "./steps/FileSelectStep";
 import { InspectionStep } from "./steps/InspectionStep";
+import { ResultStep } from "./steps/ResultStep";
 
 // 1단계에서 고른 파일과 체크 상태
 type Selection = {
@@ -60,6 +65,9 @@ export function ConsolidationApp() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [conditions, setConditions] = useState<Conditions | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
+  const [outcome, setOutcome] = useState<{ result: ConsolidationResult; appliedValues: AppliedValue[]; settings: ConsolidationSettings } | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [duplicateChoices, setDuplicateChoices] = useState<DuplicateChoices | null>(null);
   const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +84,8 @@ export function ConsolidationApp() {
       setConditions(null);
       setInspection(null);
       setDuplicateChoices(null);
+      setOutcome(null);
+      setDownloadError(null);
     }
     window.scrollTo({ top: 0 });
   }
@@ -93,8 +103,51 @@ export function ConsolidationApp() {
     });
     setInspection(result);
     setDuplicateChoices(null); // 점검을 새로 했으니 이전 선택은 지운다
-    move("next");
-    if (!result.needsReview) dispatch({ type: "next" });
+    if (!result.needsReview) {
+      // 판단할 것이 없으면 바로 취합해서 4단계로 간다
+      if (!runConsolidation(result, null)) return;
+      move("next");
+      dispatch({ type: "next" });
+    } else {
+      move("next");
+    }
+  }
+
+  // 점검을 통과한 파일들을 실제로 취합한다. 성공하면 true, 실패하면 화면에 이유를 보여 주고 false.
+  function runConsolidation(checked: Inspection, choices: DuplicateChoices | null): boolean {
+    const settings = conditions ? decisionsToSettings(conditions.decisions) : null;
+    if (!analysis || !settings) return false;
+    try {
+      const outcomeResult = consolidate(analysis.master, checked.passedDepartments, settings, choices ?? undefined);
+      const result = buildConsolidationResult({
+        outcome: outcomeResult,
+        settings,
+        consolidatedFileCount: checked.passedDepartments.length,
+        skippedFiles: checked.excludedFiles,
+      });
+      setOutcome({ result, appliedValues: outcomeResult.appliedValues, settings });
+      setDownloadError(null);
+      return true;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "취합 중 알 수 없는 오류가 났습니다.");
+      return false;
+    }
+  }
+
+  // [결과 엑셀 다운로드]: 원본 마스터 파일을 다시 열어 취합한 칸만 바꿔 새 파일로 내려받는다. 서식은 그대로 남는다.
+  async function downloadResult() {
+    if (!outcome || !selection.master || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      // 큰 파일에서도 화면이 멈추지 않도록 별도 작업 공간에서 만든다
+      const bytes = await buildResultFileInWorker(await selection.master.arrayBuffer(), outcome.appliedValues, outcome.settings);
+      downloadFile(bytes, resultFileName(selection.master.name));
+    } catch (caught) {
+      setDownloadError(caught instanceof Error ? caught.message : "결과 파일을 만들지 못했습니다.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function updateSelection(update: (current: Selection) => Selection) {
@@ -221,16 +274,13 @@ export function ConsolidationApp() {
             onChooseKey={(key, strategy) => setDuplicateChoices((current) => chooseForKey(current, key, strategy))}
           />
         )}
-        {state.step === 4 && (
-          <StepPlaceholder
-            title="4단계. 결과"
-            description="취합 결과를 요약해 보여 주고 결과 엑셀 파일을 내려받습니다."
-            items={[
-              "처리 요약 (처리 파일, 성공·제외, 미매칭, 중복, 바뀐 칸)",
-              "바뀐 칸 · 미매칭 · 중복 · 제외 파일 목록",
-              "[결과 엑셀 다운로드] 버튼",
-            ]}
-            plannedTask="PLAN.md 17번 작업"
+        {state.step === 4 && outcome && (
+          <ResultStep
+            result={outcome.result}
+            duplicateChoices={duplicateChoices}
+            downloading={downloading}
+            downloadError={downloadError}
+            onDownload={() => void downloadResult()}
           />
         )}
       </main>
@@ -241,7 +291,11 @@ export function ConsolidationApp() {
         blockedReason={blockedReason ?? undefined}
         nextLabel={state.step === 3 && inspection && inspection.excludedFiles.length > 0 ? "제외하고 계속" : undefined}
         onPrev={() => move("prev")}
-        onNext={() => (state.step === 1 ? void startAnalysis() : state.step === 2 ? startInspection() : move("next"))}
+        onNext={() => {
+          if (state.step === 1) void startAnalysis();
+          else if (state.step === 2) startInspection();
+          else if (state.step === 3 && inspection && runConsolidation(inspection, duplicateChoices)) move("next");
+        }}
         onReset={() => move("reset")}
       />
 
