@@ -1,6 +1,7 @@
 // 3단계. 점검 결과 화면: 취합에서 빠지는 파일과 이유, 마스터 경고를 보여 준다. (PRD 5번, DESIGN 3단계)
-// 중복 키 처리 방법을 고르는 부분은 PLAN.md 16번에서 만든다. 여기서는 중복이 있다는 안내만 한다.
-import type { SkipReason } from "../../_lib/types";
+// 중복 키는 처리 방법(첫 번째·마지막·모두 나열·비워 두기)을 전체에 한 번에 또는 키별로 고르게 한다. (PLAN.md 16번)
+import { describeOccurrences, STRATEGY_HINTS, STRATEGY_LABELS, STRATEGY_ORDER } from "../../_lib/duplicateChoices";
+import type { DuplicateChoices, DuplicateStrategy, SkipReason } from "../../_lib/types";
 import type { Inspection } from "../../_lib/merge/inspectAll";
 import { AlertBox } from "../AlertBox";
 
@@ -12,7 +13,15 @@ const REASON_LABELS: Record<SkipReason, string> = {
   "merged-cell-risk": "병합 셀 위험",
 };
 
-export function InspectionStep({ inspection }: { inspection: Inspection }) {
+type Props = {
+  inspection: Inspection;
+  duplicateChoices: DuplicateChoices | null;
+  onChooseAll: (strategy: DuplicateStrategy) => void;
+  onChoosePerKey: () => void;
+  onChooseKey: (key: string, strategy: DuplicateStrategy) => void;
+};
+
+export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onChoosePerKey, onChooseKey }: Props) {
   const { excludedFiles, masterWarnings, duplicateKeys, passedDepartments, canContinue } = inspection;
 
   return (
@@ -64,9 +73,68 @@ export function InspectionStep({ inspection }: { inspection: Inspection }) {
       )}
 
       {duplicateKeys.length > 0 && (
-        <AlertBox tone="info" title={`중복된 키가 ${duplicateKeys.length}건 있습니다`}>
-          같은 키가 여러 번 나오는 경우입니다. 처리 방법을 고르는 화면은 다음 작업(PLAN.md 16번)에서 만듭니다.
-        </AlertBox>
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">중복된 키 ({duplicateKeys.length}건)</h3>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            같은 키가 여러 번 나옵니다. 어느 값을 쓸지 프로그램이 마음대로 정하지 않습니다. 처리 방법을 골라 주세요.
+          </p>
+          <ul className="flex flex-col gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+            {duplicateKeys.map((duplicate) => (
+              <li key={duplicate.key} className="flex flex-col gap-1 py-1 sm:flex-row sm:items-center sm:justify-between">
+                <span className="min-w-0">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">키 &quot;{duplicate.displayKey}&quot;</span>
+                  <span className="text-zinc-600 dark:text-zinc-400"> — {describeOccurrences(duplicate.occurrences)}</span>
+                </span>
+                {duplicateChoices?.mode === "per-key" && (
+                  <select
+                    aria-label={`${duplicate.displayKey}의 처리 방법`}
+                    value={duplicateChoices.byKey[duplicate.key] ?? ""}
+                    onChange={(event) => onChooseKey(duplicate.key, event.target.value as DuplicateStrategy)}
+                    className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <option value="" disabled>
+                      선택해 주세요
+                    </option>
+                    {STRATEGY_ORDER.map((strategy) => (
+                      <option key={strategy} value={strategy}>
+                        {STRATEGY_LABELS[strategy]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">처리 방법</legend>
+            {STRATEGY_ORDER.map((strategy) => (
+              <label key={strategy} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="duplicate-strategy"
+                  className="mt-1"
+                  checked={duplicateChoices?.mode === "all" && duplicateChoices.strategy === strategy}
+                  onChange={() => onChooseAll(strategy)}
+                />
+                <span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{STRATEGY_LABELS[strategy]}</span>
+                  <span className="text-zinc-600 dark:text-zinc-400"> — {STRATEGY_HINTS[strategy]}</span>
+                </span>
+              </label>
+            ))}
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="duplicate-strategy"
+                className="mt-1"
+                checked={duplicateChoices?.mode === "per-key"}
+                onChange={onChoosePerKey}
+              />
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">키별로 따로 고르기</span>
+            </label>
+          </fieldset>
+        </div>
       )}
     </section>
   );

@@ -16,7 +16,8 @@ import { createWorkbookReader } from "../_lib/excel/workbookReader";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
 import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
 import { readSelection } from "../_lib/readSelection";
-import type { ConditionDecisions, SkippedFile, WorkbookData } from "../_lib/types";
+import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
+import type { ConditionDecisions, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
 import { ProgressPanel } from "./ProgressPanel";
@@ -59,6 +60,7 @@ export function ConsolidationApp() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [conditions, setConditions] = useState<Conditions | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
+  const [duplicateChoices, setDuplicateChoices] = useState<DuplicateChoices | null>(null);
   const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +75,7 @@ export function ConsolidationApp() {
       setAnalysis(null);
       setConditions(null);
       setInspection(null);
+      setDuplicateChoices(null);
     }
     window.scrollTo({ top: 0 });
   }
@@ -89,6 +92,7 @@ export function ConsolidationApp() {
       settings,
     });
     setInspection(result);
+    setDuplicateChoices(null); // 점검을 새로 했으니 이전 선택은 지운다
     move("next");
     if (!result.needsReview) dispatch({ type: "next" });
   }
@@ -132,7 +136,10 @@ export function ConsolidationApp() {
   if (reading) blockedReason = `파일을 읽는 중입니다… (${reading.done} / ${reading.total})`;
   else if (state.step === 1) blockedReason = analysisBlockedReason(selection.master, selection.departments);
   else if (state.step === 2) blockedReason = conditions ? conditionsBlockedReason(conditions.decisions) : "조건을 정할 파일이 없습니다.";
-  else if (state.step === 3 && !inspection?.canContinue) blockedReason = "취합할 수 있는 부서 파일이 없어 계속할 수 없습니다.";
+  else if (state.step === 3) {
+    if (!inspection?.canContinue) blockedReason = "취합할 수 있는 부서 파일이 없어 계속할 수 없습니다.";
+    else blockedReason = duplicatesBlockedReason(inspection.duplicateKeys, duplicateChoices);
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -205,7 +212,15 @@ export function ConsolidationApp() {
             }
           />
         )}
-        {state.step === 3 && inspection && <InspectionStep inspection={inspection} />}
+        {state.step === 3 && inspection && (
+          <InspectionStep
+            inspection={inspection}
+            duplicateChoices={duplicateChoices}
+            onChooseAll={(strategy) => setDuplicateChoices(chooseForAll(strategy))}
+            onChoosePerKey={() => setDuplicateChoices((current) => switchToPerKey(current))}
+            onChooseKey={(key, strategy) => setDuplicateChoices((current) => chooseForKey(current, key, strategy))}
+          />
+        )}
         {state.step === 4 && (
           <StepPlaceholder
             title="4단계. 결과"
