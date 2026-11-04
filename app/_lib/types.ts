@@ -121,6 +121,8 @@ export type AnalyzeSheetInput = {
   name: string;
   // 시트 위쪽 행들(최대 10행). headersOnly가 true이면 샘플 값 없이 열 이름만 담는다.
   rows: CellValue[][];
+  // headersOnly일 때만 채운다: rows에 담긴 한 행이 시트의 몇 번째 행인지 (1부터)
+  headerRow?: number;
 };
 
 export type AnalyzeRequest = {

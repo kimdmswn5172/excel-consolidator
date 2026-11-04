@@ -19,6 +19,7 @@ import { resultFileName } from "../_lib/excel/writeResult";
 import { downloadFile } from "../_lib/excel/download";
 import { consolidate, type AppliedValue } from "../_lib/merge/consolidate";
 import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
+import { buildAnalyzeRequest, type AnalyzePayload } from "../_lib/privacy/buildAnalyzeRequest";
 import { buildConsolidationResult } from "../_lib/merge/summarize";
 import { readSelection } from "../_lib/readSelection";
 import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
@@ -50,6 +51,7 @@ type Analysis = {
   departments: WorkbookData[]; // 읽은 부서 파일
   unreadable: SkippedFile[]; // 읽지 못한 부서 파일과 이유
   representative: WorkbookData; // 조건을 정할 때 보는 대표 파일
+  aiPayload: AnalyzePayload; // AI에 보낼 데이터 (개인정보 체크 반영, 번호 모양 값은 가림). 실제 전송은 PLAN.md 20·22번에서 연결한다
 };
 
 // 2단계에서 정하는 조건과 화면 상태
@@ -175,7 +177,8 @@ export function ConsolidationApp() {
     }
     // 대표 파일은 지금은 읽은 부서 파일 중 첫 번째다. 무작위 지정과 [다시 분석]은 PLAN.md 19번에서 만든다.
     const representative = result.departments[0];
-    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative });
+    const aiPayload = buildAnalyzeRequest(representative, selection.containsPersonalInfo);
+    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload });
     setConditions({ decisions: initialDecisions, previewSheet: representative.sheets[0]?.name ?? "", mode: "keyColumn" });
     move("next");
   }
@@ -250,6 +253,7 @@ export function ConsolidationApp() {
             decisions={conditions.decisions}
             mode={conditions.mode}
             unreadableCount={analysis.unreadable.length}
+            aiPayload={analysis.aiPayload}
             onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
             onConfirmSheet={() => updateDecisions((decisions) => chooseSheet(decisions, conditions.previewSheet), "keyColumn")}
             onModeChange={(mode) => setConditions((current) => (current ? { ...current, mode } : current))}

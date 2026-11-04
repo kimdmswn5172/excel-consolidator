@@ -3,6 +3,7 @@
 // 2단계. 조건 확인 (직접 선택 모드): 대표 파일의 미리보기 표에서 취합 조건 다섯 가지를 직접 정한다. (DESIGN 2단계)
 // AI 추천(Yes/No)은 PLAN.md 22번에서 이 화면 위에 얹는다.
 import { CONDITION_LABELS, CONDITION_ORDER, decisionText } from "../../_lib/conditions";
+import type { AnalyzePayload } from "../../_lib/privacy/buildAnalyzeRequest";
 import type { ConditionDecisions, ConditionKey, WorkbookData } from "../../_lib/types";
 import { AlertBox } from "../AlertBox";
 import { SheetPreview, type PickMode } from "../SheetPreview";
@@ -13,6 +14,7 @@ type Props = {
   decisions: ConditionDecisions;
   mode: PickMode;
   unreadableCount: number; // 읽지 못한 부서 파일 수 (3단계에서 자세히 보여 준다)
+  aiPayload: AnalyzePayload; // AI에 보낼 데이터 (무엇을 보내는지 사용자에게 알려 준다)
   onPreviewSheetChange: (sheetName: string) => void;
   onConfirmSheet: () => void;
   onModeChange: (mode: PickMode) => void;
@@ -54,6 +56,17 @@ export function ConditionStep(props: Props) {
       <p className="text-sm text-zinc-700 dark:text-zinc-300">
         대표 파일: <span className="font-medium">{representative.fileName}</span>
       </p>
+
+      {props.aiPayload.request.headersOnly ? (
+        <AlertBox tone="info">개인정보 포함으로 체크하셔서, AI에는 열 이름(헤더)만 보내고 칸의 값은 보내지 않습니다.</AlertBox>
+      ) : (
+        <AlertBox tone="info">AI에는 시트 위쪽 10행의 샘플만 보냅니다. 엑셀 전체는 보내지 않습니다.</AlertBox>
+      )}
+      {props.aiPayload.maskedCount > 0 && (
+        <AlertBox tone="warning" title="개인정보로 보이는 값을 가렸습니다">
+          {props.aiPayload.maskedKinds.join(", ")} 모양의 값 {props.aiPayload.maskedCount}개를 &quot;가림&quot;으로 바꿔서 AI에 보냅니다. 파일에 개인정보가 있다면 1단계에서 &quot;개인정보 포함&quot;을 체크해 다시 분석하세요.
+        </AlertBox>
+      )}
 
       {props.unreadableCount > 0 && (
         <AlertBox tone="warning">읽지 못한 부서 파일이 {props.unreadableCount}개 있습니다. 3단계에서 이유와 함께 보여 드립니다.</AlertBox>
