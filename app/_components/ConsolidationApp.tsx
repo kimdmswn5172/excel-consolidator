@@ -1,13 +1,26 @@
 "use client";
 
 // 서비스 전체 화면: 한 페이지 안에서 4단계가 차례로 바뀐다. (DESIGN 1번 화면 구성)
-// 1단계(파일 선택)는 PLAN.md 12번에서 만들었고, 2~4단계는 아직 뼈대다.
+// 1단계(파일 선택)와 2단계(조건 확인, 직접 선택 모드)는 만들었고, 3~4단계는 아직 뼈대다.
 import { useReducer, useState } from "react";
+import {
+  chooseSheet,
+  conditionsBlockedReason,
+  initialDecisions,
+  pickKeyColumn,
+  pickRow,
+  toggleTargetColumn,
+} from "../_lib/conditions";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
+import { readSelection } from "../_lib/readSelection";
+import type { ConditionDecisions, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
+import { AlertBox } from "./AlertBox";
+import type { PickMode } from "./SheetPreview";
 import { StepIndicator } from "./StepIndicator";
 import { StepNavigation } from "./StepNavigation";
 import { StepPlaceholder } from "./StepPlaceholder";
+import { ConditionStep } from "./steps/ConditionStep";
 import { FileSelectStep } from "./steps/FileSelectStep";
 
 // 1단계에서 고른 파일과 체크 상태
@@ -20,20 +33,72 @@ type Selection = {
 
 const emptySelection: Selection = { master: null, departments: [], containsPersonalInfo: false, notices: [] };
 
+// [분석 시작]으로 읽어 들인 파일들
+type Analysis = {
+  master: WorkbookData;
+  departments: WorkbookData[]; // 읽은 부서 파일
+  unreadable: SkippedFile[]; // 읽지 못한 부서 파일과 이유
+  representative: WorkbookData; // 조건을 정할 때 보는 대표 파일
+};
+
+// 2단계에서 정하는 조건과 화면 상태
+type Conditions = {
+  decisions: ConditionDecisions;
+  previewSheet: string; // 미리보기로 보고 있는 시트
+  mode: PickMode; // 지금 고르고 있는 항목
+};
+
 export function ConsolidationApp() {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
   const [selection, setSelection] = useState<Selection>(emptySelection);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [conditions, setConditions] = useState<Conditions | null>(null);
+  const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일도 비운다.
+  // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일과 정한 조건도 모두 비운다.
   function move(type: "next" | "prev" | "reset") {
     dispatch({ type });
-    if (type === "reset") setSelection(emptySelection);
+    setError(null);
+    if (type === "reset") {
+      setSelection(emptySelection);
+      setAnalysis(null);
+      setConditions(null);
+    }
     window.scrollTo({ top: 0 });
   }
 
-  // 단계별로 [다음]을 누를 수 있는지. 2~4단계의 조건은 각 단계를 만들 때 연결한다.
-  const blockedReason = state.step === 1 ? analysisBlockedReason(selection.master, selection.departments) : null;
-  const canGoNext = blockedReason === null;
+  function updateSelection(update: (current: Selection) => Selection) {
+    setError(null);
+    setSelection(update);
+  }
+
+  // [분석 시작]: 고른 파일을 브라우저 안에서 읽고 2단계로 넘어간다.
+  async function startAnalysis() {
+    if (!selection.master) return;
+    setError(null);
+    const result = await readSelection(selection.master, selection.departments, (done, total) => setReading({ done, total }));
+    setReading(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    // 대표 파일은 지금은 읽은 부서 파일 중 첫 번째다. 무작위 지정과 [다시 분석]은 PLAN.md 19번에서 만든다.
+    const representative = result.departments[0];
+    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative });
+    setConditions({ decisions: initialDecisions, previewSheet: representative.sheets[0]?.name ?? "", mode: "keyColumn" });
+    move("next");
+  }
+
+  function updateDecisions(update: (decisions: ConditionDecisions) => ConditionDecisions, nextMode?: PickMode) {
+    setConditions((current) => (current ? { ...current, decisions: update(current.decisions), mode: nextMode ?? current.mode } : current));
+  }
+
+  // 단계별로 [다음]을 누를 수 없는 이유. 3~4단계의 조건은 각 단계를 만들 때 연결한다.
+  let blockedReason: string | null = null;
+  if (reading) blockedReason = `파일을 읽는 중입니다… (${reading.done} / ${reading.total})`;
+  else if (state.step === 1) blockedReason = analysisBlockedReason(selection.master, selection.departments);
+  else if (state.step === 2) blockedReason = conditions ? conditionsBlockedReason(conditions.decisions) : "조건을 정할 파일이 없습니다.";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
@@ -44,7 +109,9 @@ export function ConsolidationApp() {
 
       <StepIndicator current={state.step} />
 
-      <main className="flex-1 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <main className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        {error && <AlertBox tone="error">{error}</AlertBox>}
+
         {state.step === 1 && (
           <FileSelectStep
             master={selection.master}
@@ -52,7 +119,7 @@ export function ConsolidationApp() {
             containsPersonalInfo={selection.containsPersonalInfo}
             notices={selection.notices}
             onSelectMaster={(file) =>
-              setSelection((current) => {
+              updateSelection((current) => {
                 const result = selectMasterFile(file, current.departments);
                 return {
                   ...current,
@@ -62,34 +129,44 @@ export function ConsolidationApp() {
                 };
               })
             }
-            onClearMaster={() => setSelection((current) => ({ ...current, master: null, notices: [] }))}
+            onClearMaster={() => updateSelection((current) => ({ ...current, master: null, notices: [] }))}
             onAddDepartments={(files, fromFolder) =>
-              setSelection((current) => {
+              updateSelection((current) => {
                 const result = addDepartmentFiles(current.departments, files, current.master, { fromFolder });
                 return { ...current, departments: result.files, notices: result.notices };
               })
             }
             onRemoveDepartment={(index) =>
-              setSelection((current) => ({
+              updateSelection((current) => ({
                 ...current,
                 departments: current.departments.filter((_, i) => i !== index),
                 notices: [],
               }))
             }
-            onClearDepartments={() => setSelection((current) => ({ ...current, departments: [], notices: [] }))}
-            onPersonalInfoChange={(checked) => setSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
+            onClearDepartments={() => updateSelection((current) => ({ ...current, departments: [], notices: [] }))}
+            onPersonalInfoChange={(checked) => updateSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
           />
         )}
-        {state.step === 2 && (
-          <StepPlaceholder
-            title="2단계. 조건 확인"
-            description="AI가 추천한 기준 열과 취합 범위를 확인하고, 항목마다 Yes 또는 No(직접 선택)를 고릅니다."
-            items={[
-              "대표 파일 이름과 [다른 대표 파일로 다시 분석] 버튼",
-              "기준 열, 시트, 대상 열, 헤더 위치, 데이터 시작 행의 추천값과 신뢰도",
-              "엑셀 미리보기에서 행·열 직접 선택",
-            ]}
-            plannedTask="PLAN.md 13번 작업"
+        {state.step === 2 && analysis && conditions && (
+          <ConditionStep
+            representative={analysis.representative}
+            previewSheetName={conditions.previewSheet}
+            decisions={conditions.decisions}
+            mode={conditions.mode}
+            unreadableCount={analysis.unreadable.length}
+            onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
+            onConfirmSheet={() => updateDecisions((decisions) => chooseSheet(decisions, conditions.previewSheet), "keyColumn")}
+            onModeChange={(mode) => setConditions((current) => (current ? { ...current, mode } : current))}
+            onPickColumn={(column) =>
+              conditions.mode === "keyColumn"
+                ? updateDecisions((decisions) => pickKeyColumn(decisions, column), "targetColumns")
+                : updateDecisions((decisions) => toggleTargetColumn(decisions, column))
+            }
+            onPickRow={(row) =>
+              conditions.mode === "headerRow"
+                ? updateDecisions((decisions) => pickRow(decisions, "headerRow", row), "dataStartRow")
+                : updateDecisions((decisions) => pickRow(decisions, "dataStartRow", row))
+            }
           />
         )}
         {state.step === 3 && (
@@ -119,10 +196,10 @@ export function ConsolidationApp() {
 
       <StepNavigation
         step={state.step}
-        canGoNext={canGoNext}
+        canGoNext={blockedReason === null}
         blockedReason={blockedReason ?? undefined}
         onPrev={() => move("prev")}
-        onNext={() => move("next")}
+        onNext={() => (state.step === 1 ? void startAnalysis() : move("next"))}
         onReset={() => move("reset")}
       />
 
