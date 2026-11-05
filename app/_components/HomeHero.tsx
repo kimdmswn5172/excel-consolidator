@@ -47,20 +47,12 @@ export function HomeHero({ onStart, onStartTemplate, onHowTo }: Props) {
         aria-hidden="true"
       />
 
-      <SiteNav
-        variant="dark"
-        links={[
-          { label: "시작하기", onClick: onStart },
-          { label: "양식 만들기", onClick: onStartTemplate },
-          { label: "사용 방법", onClick: () => onHowTo("steps") },
-        ]}
-        cta={{ label: "개인정보는 안전해요", onClick: () => onHowTo("privacy") }}
-        onLogo={() => window.scrollTo({ top: 0 })}
-      />
+      {/* 위쪽에는 로고만 둔다. 시작하기·양식 만들기·사용 방법은 아래 버튼들과 같은 일이라 겹치지 않게 뺐다 */}
+      <SiteNav variant="dark" onLogo={() => window.scrollTo({ top: 0 })} />
 
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-3 px-5 pb-8 pt-20 text-center sm:gap-4">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-2 px-5 pb-6 pt-[76px] text-center sm:gap-3">
         {/* 마스코트: 화면 한가운데. 폭은 화면의 가로·세로 중 작은 쪽에 맞춘다 */}
-        <MascotStage className="w-[min(76vw,47vh,520px)] shrink-0" />
+        <MascotStage className="w-[min(76vw,43vh,520px)] shrink-0" />
 
         {/* 장식용 흐린 소개 글 (같은 내용이 아래에 또렷하게 있어서 화면 읽기 도구에는 건너뛴다) */}
         <p className="pointer-events-none select-none text-[15px] font-light sm:text-lg" style={{ filter: "blur(2.5px)" }} aria-hidden="true">
@@ -69,7 +61,7 @@ export function HomeHero({ onStart, onStartTemplate, onHowTo }: Props) {
 
         <h1 className="text-[clamp(30px,6vw,54px)] leading-[1.15]">Excel 범용 취합 프로그램</h1>
 
-        <p className="min-h-[3.2em] max-w-xl text-[clamp(16px,2.6vw,21px)] font-medium leading-[1.5] text-white/85" aria-label={GREETING}>
+        <p className="min-h-[1.5em] max-w-2xl text-[clamp(16px,2.6vw,21px)] font-medium leading-[1.5] text-white/85" aria-label={GREETING}>
           <span aria-hidden="true">{displayed}</span>
           {!done && <span className="animate-blink ml-[2px] inline-block h-[1.1em] w-[2px] bg-white align-middle" aria-hidden="true" />}
         </p>
