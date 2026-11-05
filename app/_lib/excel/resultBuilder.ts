@@ -2,21 +2,22 @@
 // 작업 공간을 쓸 수 없거나 실패하면 화면과 같은 곳에서 만든다. 결과는 똑같다.
 import type { AppliedValue } from "../merge/consolidate";
 import type { ConsolidationSettings } from "../types";
-import { buildResultFile } from "./writeResult";
+import { buildResultFile, type ResultOptions } from "./writeResult";
 import type { WriteRequest, WriteResponse } from "./writeResult.worker";
 
 export async function buildResultFileInWorker(
   originalMaster: ArrayBuffer,
   appliedValues: AppliedValue[],
-  settings: Pick<ConsolidationSettings, "sheetName">,
+  settings: Pick<ConsolidationSettings, "sheetName"> & Partial<Pick<ConsolidationSettings, "keyColumn" | "headerRow" | "dataStartRow">>,
+  options: ResultOptions = {},
 ): Promise<Uint8Array<ArrayBuffer>> {
-  if (typeof Worker === "undefined") return buildResultFile(originalMaster, appliedValues, settings);
+  if (typeof Worker === "undefined") return buildResultFile(originalMaster, appliedValues, settings, options);
 
   let worker: Worker;
   try {
     worker = new Worker(new URL("./writeResult.worker.ts", import.meta.url), { type: "module" });
   } catch {
-    return buildResultFile(originalMaster, appliedValues, settings);
+    return buildResultFile(originalMaster, appliedValues, settings, options);
   }
 
   // 작업 공간이 고장 났을 때 다시 만들 수 있도록 원본 복사본을 남겨 두고, 원본은 작업 공간으로 넘긴다.
@@ -28,11 +29,11 @@ export async function buildResultFileInWorker(
         else reject(new Error(event.data.message));
       };
       worker.onerror = () => reject(new WorkerFailure());
-      const request: WriteRequest = { buffer: originalMaster, appliedValues, settings };
+      const request: WriteRequest = { buffer: originalMaster, appliedValues, settings, options };
       worker.postMessage(request, [originalMaster]);
     });
   } catch (caught) {
-    if (caught instanceof WorkerFailure) return buildResultFile(backup, appliedValues, settings);
+    if (caught instanceof WorkerFailure) return buildResultFile(backup, appliedValues, settings, options);
     throw caught;
   } finally {
     worker.terminate();

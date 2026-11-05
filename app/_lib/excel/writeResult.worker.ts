@@ -2,12 +2,13 @@
 // 큰 파일(20만 행)의 결과 파일을 화면과 같은 곳에서 만들면 10초 넘게 화면이 멈춰서 옮겼다.
 import type { AppliedValue } from "../merge/consolidate";
 import type { ConsolidationSettings } from "../types";
-import { buildResultFile } from "./writeResult";
+import { buildResultFile, type ResultOptions } from "./writeResult";
 
 export type WriteRequest = {
   buffer: ArrayBuffer; // 원본 마스터 파일 내용
   appliedValues: AppliedValue[];
-  settings: Pick<ConsolidationSettings, "sheetName">;
+  settings: Pick<ConsolidationSettings, "sheetName"> & Partial<Pick<ConsolidationSettings, "keyColumn" | "headerRow" | "dataStartRow">>;
+  options?: ResultOptions;
 };
 
 export type WriteResponse = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; message: string };
@@ -18,9 +19,9 @@ const scope = self as unknown as {
 };
 
 scope.onmessage = async (event) => {
-  const { buffer, appliedValues, settings } = event.data;
+  const { buffer, appliedValues, settings, options } = event.data;
   try {
-    const bytes = await buildResultFile(buffer, appliedValues, settings);
+    const bytes = await buildResultFile(buffer, appliedValues, settings, options);
     scope.postMessage({ ok: true, bytes } satisfies WriteResponse, [bytes.buffer]);
   } catch (caught) {
     scope.postMessage({ ok: false, message: caught instanceof Error ? caught.message : "결과 파일을 만들지 못했습니다." } satisfies WriteResponse);

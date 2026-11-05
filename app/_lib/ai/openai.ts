@@ -3,15 +3,17 @@
 // 오류 메시지에는 요청 내용이 섞일 수 있어서, 이유 분류만 돌려주고 메시지는 어디에도 남기지 않는다. (PRD 7번)
 import * as z from "zod/v4";
 import type { AnalyzeFailureReason } from "../types";
-import { aiOutputSchema } from "./schemas";
 
 export const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 // gpt-4.1: 연습용 양식 10종 시험에서 9/10(두 번 모두). 더 작은 gpt-4.1-mini는 7~8/10이었다. (PLAN 23번 기록)
 export const DEFAULT_MODEL = "gpt-4.1";
 
 // AI가 약속한 모양(JSON)으로만 답하게 하는 규칙. Zod 규칙에서 그대로 만들어 검사 규칙과 어긋나지 않게 한다.
-const { $schema: _unused, ...outputJsonSchema } = z.toJSONSchema(aiOutputSchema) as Record<string, unknown>;
-void _unused;
+export function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
+  const { $schema: _unused, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
+  void _unused;
+  return rest;
+}
 
 // HTTP 상태 코드를 실패 이유로 바꾼다.
 export function reasonFromStatus(status: number): AnalyzeFailureReason {
@@ -25,13 +27,15 @@ export type AskOptions = {
   model?: string;
   system: string;
   user: string;
+  schemaName: string; // 답의 모양 이름 (영문·숫자·밑줄)
+  schema: Record<string, unknown>; // jsonSchemaOf()로 만든 답의 모양
   timeoutMs: number;
   fetchImpl?: typeof fetch; // 시험에서 가짜 fetch를 넣는다
 };
 
 export type AskResult = { ok: true; content: string } | { ok: false; reason: AnalyzeFailureReason };
 
-export async function askOpenAI({ apiKey, model = DEFAULT_MODEL, system, user, timeoutMs, fetchImpl = fetch }: AskOptions): Promise<AskResult> {
+export async function askOpenAI({ apiKey, model = DEFAULT_MODEL, system, user, schemaName, schema, timeoutMs, fetchImpl = fetch }: AskOptions): Promise<AskResult> {
   try {
     const response = await fetchImpl(OPENAI_URL, {
       method: "POST",
@@ -42,7 +46,7 @@ export async function askOpenAI({ apiKey, model = DEFAULT_MODEL, system, user, t
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        response_format: { type: "json_schema", json_schema: { name: "excel_consolidation_conditions", strict: true, schema: outputJsonSchema } },
+        response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
         max_completion_tokens: 1024,
         store: false, // OpenAI 쪽에 대화를 저장하지 않게 한다
       }),

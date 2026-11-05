@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { MAX_DEPARTMENT_FILES, formatFileSize } from "../../_lib/fileSelection";
 import { AlertBox } from "../AlertBox";
+import { TemplateMaker } from "../TemplateMaker";
 
 type Props = {
   master: File | null;
@@ -215,6 +216,9 @@ export function FileSelectStep(props: Props) {
           </span>
         </label>
       </div>
+
+      {/* 양식이 없을 때: AI로 빈 양식 만들기 (PLAN 25번) */}
+      <TemplateMaker />
     </section>
   );
 }

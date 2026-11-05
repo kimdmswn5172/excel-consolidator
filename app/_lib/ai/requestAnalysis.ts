@@ -16,17 +16,19 @@ export type RequestAnalysisOptions = {
 
 const NOT_WORTH_RETRY: AnalyzeFailureReason[] = ["auth", "invalid-request"];
 
-async function attempt(request: AnalyzeRequest, fetchImpl: typeof fetch, timeoutMs: number): Promise<AnalyzeResponse> {
+type Failure = { ok: false; reason: AnalyzeFailureReason };
+
+async function attempt<T extends { ok: boolean }>(url: string, body: unknown, fetchImpl: typeof fetch, timeoutMs: number): Promise<T | Failure> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl("/api/analyze", {
+    const response = await fetchImpl(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const json = (await response.json()) as AnalyzeResponse;
+    const json = (await response.json()) as T;
     // 서버가 약속한 모양으로 답하지 않았다면 실패로 본다
     if (typeof json !== "object" || json === null || typeof json.ok !== "boolean") return { ok: false, reason: "invalid-response" };
     return json;
@@ -38,13 +40,22 @@ async function attempt(request: AnalyzeRequest, fetchImpl: typeof fetch, timeout
   }
 }
 
-export async function requestAnalysis(request: AnalyzeRequest, options: RequestAnalysisOptions = {}): Promise<AnalyzeResponse> {
+// 주소로 JSON을 보내 답을 받는다. 10초 제한과 1회 재시도는 AI를 부르는 모든 요청이 같다. 예외를 던지지 않는다.
+export async function postJsonWithRetry<T extends { ok: boolean }>(
+  url: string,
+  body: unknown,
+  options: RequestAnalysisOptions = {},
+): Promise<T | Failure> {
   const { fetchImpl = fetch, timeoutMs = ATTEMPT_TIMEOUT_MS, retries = MAX_RETRIES } = options;
-  let result = await attempt(request, fetchImpl, timeoutMs);
-  for (let retry = 0; retry < retries && !result.ok && !NOT_WORTH_RETRY.includes(result.reason); retry++) {
-    result = await attempt(request, fetchImpl, timeoutMs);
+  let result = await attempt<T>(url, body, fetchImpl, timeoutMs);
+  for (let retry = 0; retry < retries && !result.ok && !NOT_WORTH_RETRY.includes((result as Failure).reason); retry++) {
+    result = await attempt<T>(url, body, fetchImpl, timeoutMs);
   }
   return result;
+}
+
+export async function requestAnalysis(request: AnalyzeRequest, options: RequestAnalysisOptions = {}): Promise<AnalyzeResponse> {
+  return postJsonWithRetry<AnalyzeResponse>("/api/analyze", request, options) as Promise<AnalyzeResponse>;
 }
 
 // 화면에 보여 줄 안내. 어느 경우에도 "직접 선택해 주세요"로 이어진다.

@@ -15,10 +15,17 @@ function copyToArrayBuffer(bytes: ArrayBuffer | Uint8Array): ArrayBuffer {
 }
 
 // 원본 마스터 파일 내용과 쓰기 기록으로 결과 파일 내용(바이트)을 만든다.
+export type ResultOptions = {
+  // 기본 서식 적용(헤더 굵게·배경색, 테두리, 열 너비, 머리글 고정). 사용자가 4단계에서 체크했을 때만 켠다. (PLAN 26번)
+  applyBasicFormat?: boolean;
+};
+
 export async function buildResultFile(
   originalMaster: ArrayBuffer | Uint8Array,
   appliedValues: AppliedValue[],
-  settings: Pick<ConsolidationSettings, "sheetName">,
+  // 서식을 적용하려면 기준 열·헤더 행·데이터 시작 행도 필요하다. 없으면 서식은 건너뛴다.
+  settings: Pick<ConsolidationSettings, "sheetName"> & Partial<Pick<ConsolidationSettings, "keyColumn" | "headerRow" | "dataStartRow">>,
+  options: ResultOptions = {},
 ): Promise<Uint8Array<ArrayBuffer>> {
   // 엑셀 처리 도구는 크기가 커서, 필요할 때 처음으로 불러온다.
   const ExcelJS = (await import("exceljs")).default;
@@ -33,6 +40,12 @@ export async function buildResultFile(
   // 기록된 순서대로 쓴다. 같은 칸에 여러 번 썼다면 마지막 값이 남아 취합 엔진의 결과와 같아진다.
   for (const applied of appliedValues) {
     worksheet.getCell(applied.masterRow, applied.column).value = applied.newValue;
+  }
+
+  // 서식은 값을 모두 쓴 다음에 덧입힌다. 값과 병합 셀, 행 순서는 바꾸지 않는다.
+  if (options.applyBasicFormat && settings.keyColumn !== undefined && settings.headerRow !== undefined && settings.dataStartRow !== undefined) {
+    const { applyBasicFormat } = await import("./formatResult");
+    applyBasicFormat(worksheet, { keyColumn: settings.keyColumn, headerRow: settings.headerRow, dataStartRow: settings.dataStartRow });
   }
 
   const written = await workbook.xlsx.writeBuffer();

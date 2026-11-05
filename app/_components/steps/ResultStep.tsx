@@ -9,6 +9,8 @@ const MAX_ROWS = 200;
 type Props = {
   result: ConsolidationResult;
   duplicateChoices: DuplicateChoices | null;
+  applyFormat: boolean; // 기본 서식 적용 체크
+  onApplyFormatChange: (checked: boolean) => void;
   downloading: boolean;
   downloadError: string | null;
   onDownload: () => void;
@@ -40,7 +42,7 @@ function Limit({ total }: { total: number }) {
 const listBox = "max-h-64 overflow-auto rounded-lg border border-zinc-200 text-sm dark:border-zinc-800";
 const cell = "px-3 py-1.5 text-left align-top";
 
-export function ResultStep({ result, duplicateChoices, downloading, downloadError, onDownload }: Props) {
+export function ResultStep({ result, duplicateChoices, applyFormat, onApplyFormatChange, downloading, downloadError, onDownload }: Props) {
   const { summary, changedCells, unmatchedKeys, duplicateKeys, skippedFiles } = result;
   const cards: [string, number][] = [
     ["처리한 부서 파일", summary.processedFiles],
@@ -74,6 +76,15 @@ export function ResultStep({ result, duplicateChoices, downloading, downloadErro
       </dl>
 
       <div className="flex flex-col gap-2">
+        <label className="flex cursor-pointer items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1 h-4 w-4" checked={applyFormat} onChange={(event) => onApplyFormatChange(event.target.checked)} />
+          <span>
+            <span className="text-zinc-800 dark:text-zinc-200">기본 서식 적용</span>
+            <span className="block text-zinc-500 dark:text-zinc-400">
+              헤더 굵게·배경색, 테두리, 열 너비 맞춤, 머리글 행 고정을 더합니다. 값과 행 순서는 그대로입니다. 체크하지 않으면 마스터의 원래 서식을 그대로 둡니다.
+            </span>
+          </span>
+        </label>
         <div>
           <button
             type="button"

@@ -82,6 +82,7 @@ export function ConsolidationApp() {
   const [conditions, setConditions] = useState<Conditions | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [outcome, setOutcome] = useState<{ result: ConsolidationResult; appliedValues: AppliedValue[]; settings: ConsolidationSettings } | null>(null);
+  const [applyFormat, setApplyFormat] = useState(false); // 4단계의 "기본 서식 적용" 체크 (기본 꺼짐)
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [duplicateChoices, setDuplicateChoices] = useState<DuplicateChoices | null>(null);
@@ -105,6 +106,7 @@ export function ConsolidationApp() {
       setInspection(null);
       setDuplicateChoices(null);
       setOutcome(null);
+      setApplyFormat(false);
       setDownloadError(null);
     }
     window.scrollTo({ top: 0 });
@@ -161,7 +163,7 @@ export function ConsolidationApp() {
     setDownloadError(null);
     try {
       // 큰 파일에서도 화면이 멈추지 않도록 별도 작업 공간에서 만든다
-      const bytes = await buildResultFileInWorker(await selection.master.arrayBuffer(), outcome.appliedValues, outcome.settings);
+      const bytes = await buildResultFileInWorker(await selection.master.arrayBuffer(), outcome.appliedValues, outcome.settings, { applyBasicFormat: applyFormat });
       downloadFile(bytes, resultFileName(selection.master.name));
     } catch (caught) {
       setDownloadError(caught instanceof Error ? caught.message : "결과 파일을 만들지 못했습니다.");
@@ -357,6 +359,8 @@ export function ConsolidationApp() {
           <ResultStep
             result={outcome.result}
             duplicateChoices={duplicateChoices}
+            applyFormat={applyFormat}
+            onApplyFormatChange={setApplyFormat}
             downloading={downloading}
             downloadError={downloadError}
             onDownload={() => void downloadResult()}
