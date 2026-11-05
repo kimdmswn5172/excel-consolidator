@@ -15,6 +15,8 @@ type Props = {
   mode: PickMode;
   unreadableCount: number; // 읽지 못한 부서 파일 수 (3단계에서 자세히 보여 준다)
   aiPayload: AnalyzePayload; // AI에 보낼 데이터 (무엇을 보내는지 사용자에게 알려 준다)
+  canPickAnother: boolean; // 대표 파일 후보가 2개 이상인지
+  onPickAnotherRepresentative: () => void;
   onPreviewSheetChange: (sheetName: string) => void;
   onConfirmSheet: () => void;
   onModeChange: (mode: PickMode) => void;
@@ -53,9 +55,20 @@ export function ConditionStep(props: Props) {
         </p>
       </div>
 
-      <p className="text-sm text-zinc-700 dark:text-zinc-300">
-        대표 파일: <span className="font-medium">{representative.fileName}</span>
-      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+        <p>
+          대표 파일(무작위로 자동 지정): <span className="font-medium">{representative.fileName}</span>
+        </p>
+        <button
+          type="button"
+          onClick={props.onPickAnotherRepresentative}
+          disabled={!props.canPickAnother}
+          title={props.canPickAnother ? "조건은 처음부터 다시 정합니다" : "다른 부서 파일이 없어 바꿀 수 없습니다"}
+          className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          다른 대표 파일로 다시 분석
+        </button>
+      </div>
 
       {props.aiPayload.request.headersOnly ? (
         <AlertBox tone="info">개인정보 포함으로 체크하셔서, AI에는 열 이름(헤더)만 보내고 칸의 값은 보내지 않습니다.</AlertBox>

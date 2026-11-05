@@ -22,6 +22,7 @@ import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
 import { buildAnalyzeRequest, type AnalyzePayload } from "../_lib/privacy/buildAnalyzeRequest";
 import { buildConsolidationResult } from "../_lib/merge/summarize";
 import { readSelection } from "../_lib/readSelection";
+import { canPickAnother, pickRepresentative } from "../_lib/representative";
 import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
 import type { ConditionDecisions, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
@@ -60,6 +61,11 @@ type Conditions = {
   previewSheet: string; // 미리보기로 보고 있는 시트
   mode: PickMode; // 지금 고르고 있는 항목
 };
+
+// 대표 파일을 정한 직후의 조건 상태: 아무것도 확정하지 않은 처음 모습
+function freshConditions(representative: WorkbookData): Conditions {
+  return { decisions: initialDecisions, previewSheet: representative.sheets[0]?.name ?? "", mode: "keyColumn" };
+}
 
 export function ConsolidationApp() {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
@@ -175,12 +181,27 @@ export function ConsolidationApp() {
       setError(result.message);
       return;
     }
-    // 대표 파일은 지금은 읽은 부서 파일 중 첫 번째다. 무작위 지정과 [다시 분석]은 PLAN.md 19번에서 만든다.
-    const representative = result.departments[0];
-    const aiPayload = buildAnalyzeRequest(representative, selection.containsPersonalInfo);
-    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload });
-    setConditions({ decisions: initialDecisions, previewSheet: representative.sheets[0]?.name ?? "", mode: "keyColumn" });
+    // 대표 파일은 읽은 부서 파일 중 무작위로 1개를 자동 지정한다. (readSelection이 1개 이상을 보장한다)
+    const representative = pickRepresentative(result.departments) ?? result.departments[0];
+    setAnalysis({
+      master: result.master,
+      departments: result.departments,
+      unreadable: result.skipped,
+      representative,
+      aiPayload: buildAnalyzeRequest(representative, selection.containsPersonalInfo),
+    });
+    setConditions(freshConditions(representative));
     move("next");
+  }
+
+  // [다른 대표 파일로 다시 분석]: 지금 파일을 뺀 나머지 중 무작위로 다시 뽑고, 조건은 처음부터 다시 정한다.
+  function pickAnotherRepresentative() {
+    if (!analysis) return;
+    const representative = pickRepresentative(analysis.departments, analysis.representative);
+    if (!representative) return;
+    setAnalysis({ ...analysis, representative, aiPayload: buildAnalyzeRequest(representative, selection.containsPersonalInfo) });
+    setConditions(freshConditions(representative));
+    setError(null);
   }
 
   function updateDecisions(update: (decisions: ConditionDecisions) => ConditionDecisions, nextMode?: PickMode) {
@@ -254,6 +275,8 @@ export function ConsolidationApp() {
             mode={conditions.mode}
             unreadableCount={analysis.unreadable.length}
             aiPayload={analysis.aiPayload}
+            canPickAnother={canPickAnother(analysis.departments)}
+            onPickAnotherRepresentative={pickAnotherRepresentative}
             onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
             onConfirmSheet={() => updateDecisions((decisions) => chooseSheet(decisions, conditions.previewSheet), "keyColumn")}
             onModeChange={(mode) => setConditions((current) => (current ? { ...current, mode } : current))}
