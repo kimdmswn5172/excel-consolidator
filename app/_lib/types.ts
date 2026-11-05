@@ -136,7 +136,8 @@ export type AnalyzeFailureReason =
   | "service" // AI 서비스 오류
   | "timeout" // 10초 초과
   | "auth" // 인증 오류
-  | "invalid-response"; // 답이 약속한 모양이 아님
+  | "invalid-response" // 답이 약속한 모양이 아님
+  | "invalid-request"; // 브라우저가 보낸 요청이 약속한 모양이 아님 (너무 크거나 형식이 다름)
 
 // 성공하면 추천을, 실패하면 이유를 돌려준다. 실패하면 화면은 직접 선택 모드로 넘어간다.
 export type AnalyzeResponse =
