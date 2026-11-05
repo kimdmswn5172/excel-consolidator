@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Excel 범용 취합 프로그램
 
-## Getting Started
+여러 부서가 낸 엑셀(.xlsx) 파일을 **마스터 표 하나로 자동 취합**하는 웹 서비스입니다.
+AI가 대표 파일 1개의 양식을 분석해 기준 열과 취합 범위를 추천하고, 사용자가 확인 화면에서 Yes/No로 확정하거나 직접 고친 뒤 취합합니다.
 
-First, run the development server:
+- 배포 주소: https://my-app-seven-mauve-14.vercel.app
+- 기획서: [PRD.md](PRD.md) · 작업 계획과 진행 기록: [PLAN.md](PLAN.md) · 설계: [DESIGN.md](DESIGN.md)
+
+## 주요 기능
+
+- **AI 추천**: 시트, 기준 열, 대상 열, 헤더 위치, 시작 행을 추천하고 신뢰도를 보여 줍니다. 실패하면 직접 선택 모드로 바뀝니다.
+- **안전한 취합**: 기준 열(키)로 마스터 행을 찾아 부서 값을 채웁니다. 부서 값이 우선이고, 빈 칸은 마스터 값을 유지하며, 바뀐 칸은 모두 목록으로 보여 줍니다.
+- **중복 키·병합 셀 점검**: 같은 키가 2건 이상이면 사용자가 처리 방법을 고를 때까지 채우지 않고, 병합 셀 위험이 크면 이유를 알려 줍니다.
+- **원본 보존**: 원본 파일은 수정하지 않고 결과는 새 .xlsx 파일로만 만듭니다. 마스터의 서식은 그대로 남습니다.
+- **AI 양식 만들기**: 업무 목적을 쓰면 빈 엑셀 양식을 만들어 줍니다.
+- **한셀(한컴오피스)로 저장한 파일도 읽을 수 있습니다.**
+
+## 개인정보와 보안
+
+- 엑셀 전체 데이터는 서버로 보내지 않고 **브라우저에서 처리**합니다.
+- 외부 AI(OpenAI)에는 헤더와 상위 10행 샘플만 보내고, "개인정보 포함"으로 체크한 파일은 헤더만 보냅니다. 주민등록번호·전화번호 형태의 값은 가려서 보냅니다.
+- 서버에 파일 내용을 저장하거나 로그로 남기지 않습니다. API 키는 서버 코드에서만 읽습니다.
+
+## 기술 스택
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · ExcelJS · Zod · Vitest · Vercel 배포 · OpenAI API
+
+## 실행 방법
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run build   # 배포용 빌드
+npm run lint    # 코드 검사
+npm test        # 테스트
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+AI 기능을 쓰려면 프로젝트 폴더에 `.env` 파일을 만들고 `OPENAI_API_KEY=...` 를 넣습니다. 키가 없어도 직접 선택 모드로 취합할 수 있습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 연습용 자료
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`samples/` 폴더에 가상의 마스터·부서 파일과 예외 사례(중복, 병합 셀, 한셀 저장 파일 등)가 있습니다. 실제 업무 자료나 개인정보는 들어 있지 않습니다.
