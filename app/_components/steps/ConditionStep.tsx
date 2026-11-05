@@ -6,6 +6,7 @@ import { CONDITION_LABELS, CONDITION_ORDER, decisionText } from "../../_lib/cond
 import type { AnalyzePayload } from "../../_lib/privacy/buildAnalyzeRequest";
 import type { AiRecommendation, ConditionDecisions, ConditionKey, WorkbookData } from "../../_lib/types";
 import { RecommendationList } from "./RecommendationList";
+import { unsupportedMessage } from "../../_lib/excel/detectUnsupported";
 import { AlertBox } from "../AlertBox";
 import { SheetPreview, type PickMode } from "../SheetPreview";
 
@@ -16,6 +17,7 @@ type Props = {
   mode: PickMode;
   unreadableCount: number; // 읽지 못한 부서 파일 수 (3단계에서 자세히 보여 준다)
   aiPayload: AnalyzePayload; // AI에 보낼 데이터 (무엇을 보내는지 사용자에게 알려 준다)
+  unsupportedParts: string[]; // 마스터 안의 결과 파일에서 빠질 수 있는 요소 (경고 표시용)
   aiFailure: string | null; // AI 분석이 실패했을 때의 안내 문장 (없으면 null)
   recommendation: AiRecommendation | null; // AI 추천 (실패했으면 null)
   onAcceptRecommendation: (key: ConditionKey) => void; // 항목의 Yes
@@ -74,6 +76,12 @@ export function ConditionStep(props: Props) {
           다른 대표 파일로 다시 분석
         </button>
       </div>
+
+      {props.unsupportedParts.length > 0 && (
+        <AlertBox tone="warning" title="마스터 표에 결과 파일에서 빠질 수 있는 요소가 있습니다">
+          {unsupportedMessage(props.unsupportedParts)}
+        </AlertBox>
+      )}
 
       {props.aiFailure && (
         <AlertBox tone="warning" title="AI 분석 실패">

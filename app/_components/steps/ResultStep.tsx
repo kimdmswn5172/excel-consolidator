@@ -1,6 +1,7 @@
 // 4단계. 결과 화면: 처리 요약, 바뀐 칸·미매칭·중복·제외 파일 목록, 결과 엑셀 다운로드. (PRD 5번 must 2, DESIGN 4단계)
 import { describeOccurrences, STRATEGY_LABELS } from "../../_lib/duplicateChoices";
 import type { CellValue, ConsolidationResult, DuplicateChoices } from "../../_lib/types";
+import { unsupportedMessage } from "../../_lib/excel/detectUnsupported";
 import { AlertBox } from "../AlertBox";
 
 // 목록이 아주 길어도 화면이 느려지지 않게 처음 일부만 그린다. 전체는 결과 파일에서 볼 수 있다.
@@ -9,6 +10,7 @@ const MAX_ROWS = 200;
 type Props = {
   result: ConsolidationResult;
   duplicateChoices: DuplicateChoices | null;
+  unsupportedParts: string[]; // 마스터 안의 결과 파일에서 빠질 수 있는 요소 (다운로드 전에 한 번 더 알린다)
   applyFormat: boolean; // 기본 서식 적용 체크
   onApplyFormatChange: (checked: boolean) => void;
   downloading: boolean;
@@ -42,7 +44,7 @@ function Limit({ total }: { total: number }) {
 const listBox = "max-h-64 overflow-auto rounded-lg border border-zinc-200 text-sm dark:border-zinc-800";
 const cell = "px-3 py-1.5 text-left align-top";
 
-export function ResultStep({ result, duplicateChoices, applyFormat, onApplyFormatChange, downloading, downloadError, onDownload }: Props) {
+export function ResultStep({ result, duplicateChoices, unsupportedParts, applyFormat, onApplyFormatChange, downloading, downloadError, onDownload }: Props) {
   const { summary, changedCells, unmatchedKeys, duplicateKeys, skippedFiles } = result;
   const cards: [string, number][] = [
     ["처리한 부서 파일", summary.processedFiles],
@@ -74,6 +76,12 @@ export function ResultStep({ result, duplicateChoices, applyFormat, onApplyForma
           </div>
         ))}
       </dl>
+
+      {unsupportedParts.length > 0 && (
+        <AlertBox tone="warning" title="결과 파일을 엑셀에서 꼭 확인해 주세요">
+          {unsupportedMessage(unsupportedParts)}
+        </AlertBox>
+      )}
 
       <div className="flex flex-col gap-2">
         <label className="flex cursor-pointer items-start gap-2 text-sm">

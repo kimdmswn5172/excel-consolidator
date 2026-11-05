@@ -16,6 +16,7 @@ import { createWorkbookReader } from "../_lib/excel/workbookReader";
 import { addDepartmentFiles, analysisBlockedReason, selectMasterFile } from "../_lib/fileSelection";
 import { buildResultFileInWorker } from "../_lib/excel/resultBuilder";
 import { resultFileName } from "../_lib/excel/writeResult";
+import { detectUnsupportedParts } from "../_lib/excel/detectUnsupported";
 import { downloadFile } from "../_lib/excel/download";
 import { consolidate, type AppliedValue } from "../_lib/merge/consolidate";
 import { failureMessage, requestAnalysis } from "../_lib/ai/requestAnalysis";
@@ -55,6 +56,7 @@ type Analysis = {
   unreadable: SkippedFile[]; // 읽지 못한 부서 파일과 이유
   representative: WorkbookData; // 조건을 정할 때 보는 대표 파일
   aiPayload: AnalyzePayload; // AI에 보낸 데이터 (개인정보 체크 반영, 번호 모양 값은 가림)
+  unsupportedParts: string[]; // 마스터 안의 차트·피벗 테이블 등 결과 파일에서 빠질 수 있는 요소 (없으면 빈 목록)
   ai: AiState; // AI 분석 결과. 추천을 화면에 보여 주는 것은 PLAN.md 22번에서 연결한다
 };
 
@@ -198,9 +200,10 @@ export function ConsolidationApp() {
     // 대표 파일은 읽은 부서 파일 중 무작위로 1개를 자동 지정한다. (readSelection이 1개 이상을 보장한다)
     const representative = pickRepresentative(result.departments) ?? result.departments[0];
     const aiPayload = buildAnalyzeRequest(representative, selection.containsPersonalInfo);
+    const unsupportedParts = await detectUnsupportedParts(await selection.master.arrayBuffer());
     const ai = await askAi(aiPayload);
     if (ai === null) return; // 기다리는 사이 [처음부터 다시]를 눌렀다
-    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload, ai });
+    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload, unsupportedParts, ai });
     setConditions(freshConditions(representative, ai));
     move("next");
   }
@@ -325,6 +328,7 @@ export function ConsolidationApp() {
             mode={conditions.mode}
             unreadableCount={analysis.unreadable.length}
             aiPayload={analysis.aiPayload}
+            unsupportedParts={analysis.unsupportedParts}
             aiFailure={analysis.ai.status === "failed" ? failureMessage(analysis.ai.reason) : null}
             recommendation={analysis.ai.status === "ok" ? analysis.ai.recommendation : null}
             onAcceptRecommendation={acceptRecommendationFor}
@@ -359,6 +363,7 @@ export function ConsolidationApp() {
           <ResultStep
             result={outcome.result}
             duplicateChoices={duplicateChoices}
+            unsupportedParts={analysis?.unsupportedParts ?? []}
             applyFormat={applyFormat}
             onApplyFormatChange={setApplyFormat}
             downloading={downloading}
