@@ -15,6 +15,7 @@ type Props = {
   mode: PickMode;
   unreadableCount: number; // 읽지 못한 부서 파일 수 (3단계에서 자세히 보여 준다)
   aiPayload: AnalyzePayload; // AI에 보낼 데이터 (무엇을 보내는지 사용자에게 알려 준다)
+  aiFailure: string | null; // AI 분석이 실패했을 때의 안내 문장 (없으면 null)
   canPickAnother: boolean; // 대표 파일 후보가 2개 이상인지
   onPickAnotherRepresentative: () => void;
   onPreviewSheetChange: (sheetName: string) => void;
@@ -69,6 +70,12 @@ export function ConditionStep(props: Props) {
           다른 대표 파일로 다시 분석
         </button>
       </div>
+
+      {props.aiFailure && (
+        <AlertBox tone="warning" title="AI 분석 실패">
+          {props.aiFailure} 올린 파일과 개인정보 체크는 그대로이고, 아래 미리보기에서 직접 고르면 됩니다.
+        </AlertBox>
+      )}
 
       {props.aiPayload.request.headersOnly ? (
         <AlertBox tone="info">개인정보 포함으로 체크하셔서, AI에는 열 이름(헤더)만 보내고 칸의 값은 보내지 않습니다.</AlertBox>

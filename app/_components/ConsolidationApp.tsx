@@ -2,7 +2,7 @@
 
 // 서비스 전체 화면: 한 페이지 안에서 4단계가 차례로 바뀐다. (DESIGN 1번 화면 구성)
 // 1단계(파일 선택)와 2단계(조건 확인, 직접 선택 모드)는 만들었고, 3~4단계는 아직 뼈대다.
-import { useReducer, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import {
   chooseSheet,
   conditionsBlockedReason,
@@ -18,13 +18,14 @@ import { buildResultFileInWorker } from "../_lib/excel/resultBuilder";
 import { resultFileName } from "../_lib/excel/writeResult";
 import { downloadFile } from "../_lib/excel/download";
 import { consolidate, type AppliedValue } from "../_lib/merge/consolidate";
+import { failureMessage, requestAnalysis } from "../_lib/ai/requestAnalysis";
 import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
 import { buildAnalyzeRequest, type AnalyzePayload } from "../_lib/privacy/buildAnalyzeRequest";
 import { buildConsolidationResult } from "../_lib/merge/summarize";
 import { readSelection } from "../_lib/readSelection";
 import { canPickAnother, pickRepresentative } from "../_lib/representative";
 import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
-import type { ConditionDecisions, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
+import type { AiRecommendation, AnalyzeFailureReason, ConditionDecisions, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
 import { ProgressPanel } from "./ProgressPanel";
@@ -52,8 +53,11 @@ type Analysis = {
   departments: WorkbookData[]; // 읽은 부서 파일
   unreadable: SkippedFile[]; // 읽지 못한 부서 파일과 이유
   representative: WorkbookData; // 조건을 정할 때 보는 대표 파일
-  aiPayload: AnalyzePayload; // AI에 보낼 데이터 (개인정보 체크 반영, 번호 모양 값은 가림). 실제 전송은 PLAN.md 20·22번에서 연결한다
+  aiPayload: AnalyzePayload; // AI에 보낸 데이터 (개인정보 체크 반영, 번호 모양 값은 가림)
+  ai: AiState; // AI 분석 결과. 추천을 화면에 보여 주는 것은 PLAN.md 22번에서 연결한다
 };
+
+type AiState = { status: "ok"; recommendation: AiRecommendation } | { status: "failed"; reason: AnalyzeFailureReason };
 
 // 2단계에서 정하는 조건과 화면 상태
 type Conditions = {
@@ -79,6 +83,8 @@ export function ConsolidationApp() {
   const [duplicateChoices, setDuplicateChoices] = useState<DuplicateChoices | null>(null);
   const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false); // AI 응답을 기다리는 중
+  const aiRun = useRef(0); // 가장 최근 AI 요청 번호. 오래된 요청의 늦은 답을 버리는 데 쓴다
 
   // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일과 정한 조건도 모두 비운다.
   function move(type: "next" | "prev" | "reset") {
@@ -87,6 +93,8 @@ export function ConsolidationApp() {
     if (type === "prev" && state.step === 4 && inspection && !inspection.needsReview) dispatch({ type });
     setError(null);
     if (type === "reset") {
+      aiRun.current++; // 기다리던 AI 답이 늦게 와도 버린다
+      setAnalyzing(false);
       setSelection(emptySelection);
       setAnalysis(null);
       setConditions(null);
@@ -183,25 +191,36 @@ export function ConsolidationApp() {
     }
     // 대표 파일은 읽은 부서 파일 중 무작위로 1개를 자동 지정한다. (readSelection이 1개 이상을 보장한다)
     const representative = pickRepresentative(result.departments) ?? result.departments[0];
-    setAnalysis({
-      master: result.master,
-      departments: result.departments,
-      unreadable: result.skipped,
-      representative,
-      aiPayload: buildAnalyzeRequest(representative, selection.containsPersonalInfo),
-    });
+    const aiPayload = buildAnalyzeRequest(representative, selection.containsPersonalInfo);
+    const ai = await askAi(aiPayload);
+    if (ai === null) return; // 기다리는 사이 [처음부터 다시]를 눌렀다
+    setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload, ai });
     setConditions(freshConditions(representative));
     move("next");
   }
 
-  // [다른 대표 파일로 다시 분석]: 지금 파일을 뺀 나머지 중 무작위로 다시 뽑고, 조건은 처음부터 다시 정한다.
-  function pickAnotherRepresentative() {
-    if (!analysis) return;
+  // AI에게 대표 파일 분석을 부탁한다. 실패해도 예외 없이 이유를 돌려주고, 화면은 직접 선택 모드로 간다.
+  // 기다리는 사이 [처음부터 다시]를 눌렀다면 결과를 버리기 위해 null을 돌려준다.
+  async function askAi(payload: AnalyzePayload): Promise<AiState | null> {
+    const run = ++aiRun.current;
+    setAnalyzing(true);
+    const response = await requestAnalysis(payload.request);
+    if (run !== aiRun.current) return null;
+    setAnalyzing(false);
+    return response.ok ? { status: "ok", recommendation: response.recommendation } : { status: "failed", reason: response.reason };
+  }
+
+  // [다른 대표 파일로 다시 분석]: 지금 파일을 뺀 나머지 중 무작위로 다시 뽑고, AI에게 다시 묻고, 조건은 처음부터 다시 정한다.
+  async function pickAnotherRepresentative() {
+    if (!analysis || analyzing) return;
     const representative = pickRepresentative(analysis.departments, analysis.representative);
     if (!representative) return;
-    setAnalysis({ ...analysis, representative, aiPayload: buildAnalyzeRequest(representative, selection.containsPersonalInfo) });
-    setConditions(freshConditions(representative));
     setError(null);
+    const aiPayload = buildAnalyzeRequest(representative, selection.containsPersonalInfo);
+    const ai = await askAi(aiPayload);
+    if (ai === null) return;
+    setAnalysis({ ...analysis, representative, aiPayload, ai });
+    setConditions(freshConditions(representative));
   }
 
   function updateDecisions(update: (decisions: ConditionDecisions) => ConditionDecisions, nextMode?: PickMode) {
@@ -211,6 +230,7 @@ export function ConsolidationApp() {
   // 단계별로 [다음]을 누를 수 없는 이유. 3~4단계의 조건은 각 단계를 만들 때 연결한다.
   let blockedReason: string | null = null;
   if (reading) blockedReason = `파일을 읽는 중입니다… (${reading.done} / ${reading.total})`;
+  else if (analyzing) blockedReason = "AI가 분석하는 중입니다…";
   else if (state.step === 1) blockedReason = analysisBlockedReason(selection.master, selection.departments);
   else if (state.step === 2) blockedReason = conditions ? conditionsBlockedReason(conditions.decisions) : "조건을 정할 파일이 없습니다.";
   else if (state.step === 3) {
@@ -232,7 +252,15 @@ export function ConsolidationApp() {
 
         {reading && <ProgressPanel title="파일을 읽는 중입니다" done={reading.done} total={reading.total} current={reading.current} />}
 
-        {state.step === 1 && !reading && (
+        {analyzing && (
+          <section className="flex flex-col items-center gap-3 py-10 text-center" aria-live="polite" aria-busy="true">
+            <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">AI가 대표 파일의 양식을 분석하는 중입니다</p>
+            <div className="h-2 w-full max-w-md animate-pulse rounded-full bg-blue-600/60" />
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">응답이 없으면 10초 뒤 한 번 더 시도하고, 그래도 안 되면 직접 선택하도록 넘어갑니다.</p>
+          </section>
+        )}
+
+        {state.step === 1 && !reading && !analyzing && (
           <FileSelectStep
             master={selection.master}
             departments={selection.departments}
@@ -267,7 +295,7 @@ export function ConsolidationApp() {
             onPersonalInfoChange={(checked) => updateSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
           />
         )}
-        {state.step === 2 && analysis && conditions && (
+        {state.step === 2 && analysis && conditions && !analyzing && (
           <ConditionStep
             representative={analysis.representative}
             previewSheetName={conditions.previewSheet}
@@ -275,6 +303,7 @@ export function ConsolidationApp() {
             mode={conditions.mode}
             unreadableCount={analysis.unreadable.length}
             aiPayload={analysis.aiPayload}
+            aiFailure={analysis.ai.status === "failed" ? failureMessage(analysis.ai.reason) : null}
             canPickAnother={canPickAnother(analysis.departments)}
             onPickAnotherRepresentative={pickAnotherRepresentative}
             onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
