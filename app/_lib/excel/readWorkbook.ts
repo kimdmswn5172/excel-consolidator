@@ -2,6 +2,7 @@
 // 엑셀 전체를 서버로 보내지 않고 사용자의 브라우저 안에서만 처리한다. (PRD 7번, DESIGN 2번)
 // 원본 파일은 건드리지 않고, 읽은 내용을 메모리에 복사해 둔 WorkbookData만 돌려준다.
 import { formatRange, parseRange } from "./a1";
+import { loadWorkbook } from "./loadWorkbook";
 import type { CellValue, MergedRange, SheetData, SkippedFile, WorkbookData } from "../types";
 
 // 읽기에 성공하면 워크북을, 실패하면 "제외 파일 목록"에 보여 줄 이유를 돌려준다.
@@ -63,8 +64,8 @@ export async function readWorkbookFromBuffer(
   try {
     // 엑셀 처리 도구는 크기가 커서, 파일을 읽을 때 처음으로 불러온다.
     const ExcelJS = (await import("exceljs")).default;
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+    // 한셀 등으로 저장한 파일은 그대로는 안 열려서, 실패하면 태그 모양을 고쳐서 한 번 더 연다.
+    const workbook = await loadWorkbook(ExcelJS, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
 
     const sheets: SheetData[] = workbook.worksheets.map((worksheet) => {
       const rowCount = worksheet.rowCount;

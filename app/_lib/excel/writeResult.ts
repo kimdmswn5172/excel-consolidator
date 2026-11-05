@@ -4,6 +4,7 @@
 // 이렇게 하면 마스터의 글꼴, 열 너비, 날짜 서식, 병합된 제목 줄 같은 모양이 결과 파일에 그대로 남는다.
 // (WorkbookData에는 값만 있고 서식은 없어서, 거기서 새로 만들면 서식이 모두 사라진다)
 import type { AppliedValue } from "../merge/consolidate";
+import { loadWorkbook } from "./loadWorkbook";
 import type { ConsolidationSettings } from "../types";
 
 export const XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -29,8 +30,8 @@ export async function buildResultFile(
 ): Promise<Uint8Array<ArrayBuffer>> {
   // 엑셀 처리 도구는 크기가 커서, 필요할 때 처음으로 불러온다.
   const ExcelJS = (await import("exceljs")).default;
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(copyToArrayBuffer(originalMaster));
+  // 한셀 등으로 저장한 마스터도 열 수 있게 한다. 결과 파일은 표준 엑셀 모양으로 저장된다.
+  const workbook = await loadWorkbook(ExcelJS, copyToArrayBuffer(originalMaster));
 
   const worksheet = workbook.getWorksheet(settings.sheetName);
   if (!worksheet) {
