@@ -10,26 +10,26 @@ export function ProgressPanel({ title, done, total, current }: Props) {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <section className="flex flex-col items-center gap-4 py-10 text-center" aria-live="polite" aria-busy="true">
-      <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">{title}</p>
+      <p className="text-base font-medium text-ink">{title}</p>
       <div
-        className="h-2 w-full max-w-md overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+        className="h-2 w-full max-w-md overflow-hidden rounded-full bg-ink/10"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={done}
         aria-label={title}
       >
-        <div className="h-full rounded-full bg-blue-600 transition-[width] duration-300" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${percent}%` }} />
       </div>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-ink-soft">
         {done} / {total}개 완료 ({percent}%)
       </p>
       {current && (
-        <p className="max-w-md truncate text-xs text-zinc-500 dark:text-zinc-400" title={current}>
+        <p className="max-w-md truncate text-xs text-ink-soft" title={current}>
           지금 읽는 파일: {current}
         </p>
       )}
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">파일이 크면 시간이 걸릴 수 있습니다. 화면을 닫지 말고 기다려 주세요.</p>
+      <p className="text-xs text-ink-soft">파일이 크면 시간이 걸릴 수 있습니다. 화면을 닫지 말고 기다려 주세요.</p>
     </section>
   );
 }

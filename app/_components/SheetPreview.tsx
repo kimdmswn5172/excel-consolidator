@@ -38,30 +38,30 @@ export function SheetPreview(props: Props) {
   const rows = Array.from({ length: rowCount }, (_, i) => i + 1);
 
   function columnTone(column: number): string {
-    if (column === keyColumn) return "bg-blue-100 dark:bg-blue-950/70";
-    if (targetColumns.includes(column)) return "bg-emerald-100 dark:bg-emerald-950/70";
+    if (column === keyColumn) return "bg-blue-100";
+    if (targetColumns.includes(column)) return "bg-emerald-100";
     return "";
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <div className="overflow-x-auto rounded-2xl border border-ink/10">
         <table className="border-collapse text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-zinc-100 px-2 py-1 dark:bg-zinc-800" />
+              <th className="sticky left-0 z-10 bg-ink/5 px-2 py-1" />
               {columns.map((column) => {
                 const disabled = !pickingColumn || (mode === "targetColumns" && column === keyColumn);
                 const selected = column === keyColumn || targetColumns.includes(column);
                 return (
-                  <th key={column} className={`border-l border-zinc-200 p-0 dark:border-zinc-700 ${columnTone(column) || "bg-zinc-100 dark:bg-zinc-800"}`}>
+                  <th key={column} className={`border-l border-ink/10 p-0 ${columnTone(column) || "bg-ink/5"}`}>
                     <button
                       type="button"
                       disabled={disabled}
                       aria-pressed={selected}
                       aria-label={`${numberToColumnLetters(column)}열`}
                       onClick={() => onPickColumn(column)}
-                      className="w-full min-w-10 px-2 py-1 font-medium text-zinc-700 enabled:hover:bg-blue-200 disabled:cursor-default dark:text-zinc-200 dark:enabled:hover:bg-blue-900"
+                      className="w-full min-w-10 px-2 py-1 font-medium text-ink enabled:hover:bg-blue-200 disabled:cursor-default"
                     >
                       {numberToColumnLetters(column)}
                     </button>
@@ -77,14 +77,14 @@ export function SheetPreview(props: Props) {
               const isDataStart = row === dataStartRow;
               return (
                 <tr key={row} className={isDataStart ? "border-t-2 border-blue-500" : ""}>
-                  <th className="sticky left-0 z-10 border-t border-zinc-200 bg-zinc-100 p-0 dark:border-zinc-700 dark:bg-zinc-800">
+                  <th className="sticky left-0 z-10 border-t border-ink/10 bg-ink/5 p-0">
                     <button
                       type="button"
                       disabled={!pickingRow}
                       aria-pressed={isHeader || isDataStart}
                       aria-label={`${row}행`}
                       onClick={() => onPickRow(row)}
-                      className="w-full px-2 py-1 font-medium text-zinc-700 enabled:hover:bg-blue-200 disabled:cursor-default dark:text-zinc-200 dark:enabled:hover:bg-blue-900"
+                      className="w-full px-2 py-1 font-medium text-ink enabled:hover:bg-blue-200 disabled:cursor-default"
                     >
                       {row}
                     </button>
@@ -94,9 +94,9 @@ export function SheetPreview(props: Props) {
                       key={column}
                       title={cellText(sheet.cells[row - 1]?.[column - 1] ?? null)}
                       className={[
-                        "max-w-40 truncate border-l border-t border-zinc-200 px-2 py-1 dark:border-zinc-800",
-                        isHeader ? "bg-amber-100 font-medium dark:bg-amber-950/70" : columnTone(column),
-                        beforeData ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-800 dark:text-zinc-200",
+                        "max-w-40 truncate border-l border-t border-ink/10 px-2 py-1",
+                        isHeader ? "bg-amber-100 font-medium" : columnTone(column),
+                        beforeData ? "text-ink/40" : "text-ink",
                       ].join(" ")}
                     >
                       {cellText(sheet.cells[row - 1]?.[column - 1] ?? null)}
@@ -108,7 +108,7 @@ export function SheetPreview(props: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs text-ink-soft">
         {sheet.rowCount > rowCount || sheet.colCount > colCount
           ? `앞쪽 ${rowCount}행 × ${colCount}열만 보여 줍니다. (전체 ${sheet.rowCount}행 × ${sheet.colCount}열)`
           : `전체 ${sheet.rowCount}행 × ${sheet.colCount}열`}

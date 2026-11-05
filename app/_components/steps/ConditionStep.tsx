@@ -8,6 +8,7 @@ import type { AiRecommendation, ConditionDecisions, ConditionKey, WorkbookData }
 import { RecommendationList } from "./RecommendationList";
 import { unsupportedMessage } from "../../_lib/excel/detectUnsupported";
 import { AlertBox } from "../AlertBox";
+import { btnPrimary, btnSmall, input } from "../ui";
 import { SheetPreview, type PickMode } from "../SheetPreview";
 
 type Props = {
@@ -39,7 +40,7 @@ const MODE_HELP: Record<PickMode, string> = {
 };
 
 const chip =
-  "rounded-full border px-3 py-1 text-sm font-medium aria-pressed:border-blue-600 aria-pressed:bg-blue-600 aria-pressed:text-white border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800";
+  "rounded-full border border-ink/15 bg-white px-4 py-1.5 text-sm font-medium text-ink transition-colors hover:border-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-white";
 
 function valueOf<T>(decision: { state: string; value?: T }): T | null {
   return decision.state === "confirmed" ? (decision.value as T) : null;
@@ -54,15 +55,15 @@ export function ConditionStep(props: Props) {
   return (
     <section className="flex flex-col gap-5" aria-labelledby="step-title">
       <div>
-        <h2 id="step-title" className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+        <h2 id="step-title" className="text-lg font-medium text-ink">
           2단계. 조건 확인
         </h2>
-        <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm leading-6 text-ink-soft">
           대표 파일의 미리보기 표에서 취합 조건을 정합니다. 정한 조건은 나머지 부서 파일에도 똑같이 적용됩니다.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink">
         <p>
           대표 파일(무작위로 자동 지정): <span className="font-medium">{representative.fileName}</span>
         </p>
@@ -71,7 +72,7 @@ export function ConditionStep(props: Props) {
           onClick={props.onPickAnotherRepresentative}
           disabled={!props.canPickAnother}
           title={props.canPickAnother ? "조건은 처음부터 다시 정합니다" : "다른 부서 파일이 없어 바꿀 수 없습니다"}
-          className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className={btnSmall}
         >
           다른 대표 파일로 다시 분석
         </button>
@@ -119,15 +120,15 @@ export function ConditionStep(props: Props) {
           const text = decisionText(decisions, key);
           const confirmed = decisions[key].state === "confirmed";
           return (
-            <div key={key} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-              <dt className="text-sm text-zinc-600 dark:text-zinc-400">{CONDITION_LABELS[key]}</dt>
+            <div key={key} className="flex items-center justify-between gap-2 rounded-2xl border border-ink/10 px-3 py-2">
+              <dt className="text-sm text-ink-soft">{CONDITION_LABELS[key]}</dt>
               <dd className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">{text || "—"}</span>
+                <span className="font-medium text-ink">{text || "—"}</span>
                 <span
                   className={
                     confirmed
-                      ? "rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                      : "rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      ? "rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800"
+                      : "rounded-full bg-ink/5 px-2 py-0.5 text-xs text-ink-soft"
                   }
                 >
                   {confirmed ? "확정" : "미정"}
@@ -141,12 +142,12 @@ export function ConditionStep(props: Props) {
 
       {/* 시트 고르기 */}
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex items-center gap-2 text-sm text-ink">
           미리볼 시트
           <select
             value={sheet.name}
             onChange={(event) => props.onPreviewSheetChange(event.target.value)}
-            className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={`${input} !w-auto !py-1.5`}
           >
             {representative.sheets.map((candidate) => (
               <option key={candidate.name} value={candidate.name}>
@@ -156,12 +157,12 @@ export function ConditionStep(props: Props) {
           </select>
         </label>
         {sheetConfirmed ? (
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">이 시트로 정했습니다.</span>
+          <span className="text-sm text-emerald-700">이 시트로 정했습니다.</span>
         ) : (
           <button
             type="button"
             onClick={props.onConfirmSheet}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            className={`${btnPrimary} !px-4 !py-2`}
           >
             이 시트로 정하기
           </button>
@@ -178,7 +179,7 @@ export function ConditionStep(props: Props) {
               </button>
             ))}
           </div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{MODE_HELP[mode]}</p>
+          <p className="text-sm text-ink-soft">{MODE_HELP[mode]}</p>
           <SheetPreview
             sheet={sheet}
             mode={mode}
@@ -189,17 +190,17 @@ export function ConditionStep(props: Props) {
             onPickColumn={props.onPickColumn}
             onPickRow={props.onPickRow}
           />
-          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-soft">
             <span>
-              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-blue-100 align-middle dark:bg-blue-950" />
+              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-blue-100 align-middle" />
               기준 열
             </span>
             <span>
-              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-emerald-100 align-middle dark:bg-emerald-950" />
+              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-emerald-100 align-middle" />
               대상 열
             </span>
             <span>
-              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-amber-100 align-middle dark:bg-amber-950" />
+              <span className="mr-1 inline-block h-3 w-3 rounded-sm bg-amber-100 align-middle" />
               헤더 행
             </span>
             <span>

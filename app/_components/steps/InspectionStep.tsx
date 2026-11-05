@@ -27,8 +27,8 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">3단계. 점검 결과</h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-lg font-medium text-ink">3단계. 점검 결과</h2>
+        <p className="text-sm text-ink-soft">
           취합하기 전에 파일을 점검했습니다. 취합할 수 있는 부서 파일은 <strong>{passedDepartments.length}개</strong>입니다.
         </p>
       </div>
@@ -52,20 +52,20 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
 
       {excludedFiles.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">취합에서 제외된 파일 ({excludedFiles.length}개)</h3>
+          <h3 className="text-sm font-medium text-ink">취합에서 제외된 파일 ({excludedFiles.length}개)</h3>
           <ul className="flex flex-col gap-2">
             {excludedFiles.map((file) => (
               <li
                 key={`${file.fileName}-${file.reason}`}
-                className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/60"
+                className="flex flex-col gap-1 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{file.fileName}</span>
-                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                  <span className="font-medium text-ink">{file.fileName}</span>
+                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs text-amber-900">
                     {REASON_LABELS[file.reason]}
                   </span>
                 </div>
-                <p className="leading-6 text-zinc-700 dark:text-zinc-300">{file.message}</p>
+                <p className="leading-6 text-ink">{file.message}</p>
               </li>
             ))}
           </ul>
@@ -74,23 +74,23 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
 
       {duplicateKeys.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">중복된 키 ({duplicateKeys.length}건)</h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <h3 className="text-sm font-medium text-ink">중복된 키 ({duplicateKeys.length}건)</h3>
+          <p className="text-sm text-ink-soft">
             같은 키가 여러 번 나옵니다. 어느 값을 쓸지 프로그램이 마음대로 정하지 않습니다. 처리 방법을 골라 주세요.
           </p>
-          <ul className="flex flex-col gap-1 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+          <ul className="flex flex-col gap-1 rounded-2xl border border-ink/10 p-3 text-sm">
             {duplicateKeys.map((duplicate) => (
               <li key={duplicate.key} className="flex flex-col gap-1 py-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="min-w-0">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">키 &quot;{duplicate.displayKey}&quot;</span>
-                  <span className="text-zinc-600 dark:text-zinc-400"> — {describeOccurrences(duplicate.occurrences)}</span>
+                  <span className="font-medium text-ink">키 &quot;{duplicate.displayKey}&quot;</span>
+                  <span className="text-ink-soft"> — {describeOccurrences(duplicate.occurrences)}</span>
                 </span>
                 {duplicateChoices?.mode === "per-key" && (
                   <select
                     aria-label={`${duplicate.displayKey}의 처리 방법`}
                     value={duplicateChoices.byKey[duplicate.key] ?? ""}
                     onChange={(event) => onChooseKey(duplicate.key, event.target.value as DuplicateStrategy)}
-                    className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="rounded-xl border border-ink/10 bg-white px-2 py-1 text-sm"
                   >
                     <option value="" disabled>
                       선택해 주세요
@@ -107,7 +107,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
           </ul>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">처리 방법</legend>
+            <legend className="text-sm font-medium text-ink">처리 방법</legend>
             {STRATEGY_ORDER.map((strategy) => (
               <label key={strategy} className="flex items-start gap-2 text-sm">
                 <input
@@ -118,8 +118,8 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
                   onChange={() => onChooseAll(strategy)}
                 />
                 <span>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{STRATEGY_LABELS[strategy]}</span>
-                  <span className="text-zinc-600 dark:text-zinc-400"> — {STRATEGY_HINTS[strategy]}</span>
+                  <span className="font-medium text-ink">{STRATEGY_LABELS[strategy]}</span>
+                  <span className="text-ink-soft"> — {STRATEGY_HINTS[strategy]}</span>
                 </span>
               </label>
             ))}
@@ -131,7 +131,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
                 checked={duplicateChoices?.mode === "per-key"}
                 onChange={onChoosePerKey}
               />
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">키별로 따로 고르기</span>
+              <span className="font-medium text-ink">키별로 따로 고르기</span>
             </label>
           </fieldset>
         </div>

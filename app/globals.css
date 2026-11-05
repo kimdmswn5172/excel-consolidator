@@ -1,27 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #fafafa;
-  --foreground: #171717;
-}
-
+/* 디자인 기본값 (DESIGN 11번). 색은 마스코트에서 가져왔다: 흰 몸, 빨간 귀 안쪽·코, 남색 눈, 분홍 볼. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-night: #10121c; /* 홈 화면 배경 */
+  --color-ink: #181b2d; /* 글자·주 버튼 (마스코트의 눈 색) */
+  --color-ink-soft: #4a4f66;
+  --color-paper: #f6f3ee; /* 작업 화면 배경 */
+  --color-brand: #e4432a; /* 강조색 (마스코트의 빨강) */
+  --color-brand-dark: #c4351e;
+  --color-blush: #f9e0da; /* 연한 분홍 (마스코트의 볼) */
+  --font-sans: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 다크 모드는 지원하지 않는다. (운영체제가 어두운 화면이어도 같은 모습으로 보이게 한다) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  /* 영문은 Geist, 한글은 운영체제의 한글 글꼴(맑은 고딕 등)을 쓴다 */
-  font-family: var(--font-geist-sans), "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  /* 영문은 헬베티카 계열, 한글은 운영체제의 한글 글꼴(맑은 고딕 등)을 쓴다. 별도 글꼴 파일을 내려받지 않는다. */
+  font-family: var(--font-sans);
+}
+
+/* 입력 칸에 키보드로 이동했을 때 보이는 테두리 */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* 타자기 효과 뒤에 깜빡이는 막대 */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 마스코트가 가만히 있어도 위아래로 살짝 움직인다 */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+.animate-float {
+  animation: float 4.5s ease-in-out infinite;
+}
+.animate-fade-up {
+  animation: fade-up 0.45s ease both;
+}
+
+/* 움직임을 줄여 달라는 설정을 쓰는 사용자에게는 움직이는 효과를 모두 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink,
+  .animate-float,
+  .animate-fade-up {
+    animation: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -30,7 +30,12 @@ import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } f
 import type { AiRecommendation, AnalyzeFailureReason, ConditionDecisions, ConditionKey, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
+import { HomeHero } from "./HomeHero";
+import { HowToDialog } from "./HowToDialog";
+import { MascotGuide } from "./MascotGuide";
 import { ProgressPanel } from "./ProgressPanel";
+import { SiteNav } from "./SiteNav";
+import { card } from "./ui";
 import type { PickMode } from "./SheetPreview";
 import { StepIndicator } from "./StepIndicator";
 import { StepNavigation } from "./StepNavigation";
@@ -91,6 +96,9 @@ export function ConsolidationApp() {
   const [reading, setReading] = useState<{ done: number; total: number; current?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false); // AI 응답을 기다리는 중
+  const [view, setView] = useState<"home" | "work">("home"); // 처음에는 홈 화면, 시작을 누르면 작업 화면
+  const [openTemplate, setOpenTemplate] = useState(false); // 홈의 [AI로 양식 만들기]로 들어왔을 때 양식 만들기를 열어 둔다
+  const [howTo, setHowTo] = useState<{ open: boolean; focus: "steps" | "privacy" }>({ open: false, focus: "steps" });
   const aiRun = useRef(0); // 가장 최근 AI 요청 번호. 오래된 요청의 늦은 답을 버리는 데 쓴다
 
   // 단계가 바뀌면 화면 맨 위부터 보이게 한다. [처음부터 다시]는 고른 파일과 정한 조건도 모두 비운다.
@@ -263,133 +271,181 @@ export function ConsolidationApp() {
     else blockedReason = duplicatesBlockedReason(inspection.duplicateKeys, duplicateChoices);
   }
 
+  // 홈 화면의 버튼들: 작업 화면으로 넘어간다
+  function enterWork(withTemplate: boolean) {
+    setOpenTemplate(withTemplate);
+    setView("work");
+    window.scrollTo({ top: 0 });
+  }
+
+  // 로고를 누르면 홈으로 돌아간다. 진행 중인 작업이 있으면 사라진다고 먼저 물어본다.
+  function goHome() {
+    const hasWork = state.step > 1 || selection.master !== null || selection.departments.length > 0;
+    if (hasWork && !window.confirm("처음 화면으로 돌아가면 지금까지 고른 파일과 정한 조건이 사라져요. 돌아갈까요?")) return;
+    move("reset");
+    setOpenTemplate(false);
+    setView("home");
+  }
+
+  // 마스코트 말풍선: 지금 단계에서 해야 할 일을 친근한 말로 알려 준다
+  let tip = "마스터 표 1개와 부서 파일을 올려 주세요. 파일은 이 컴퓨터 안에서만 읽어요!";
+  if (reading) tip = "파일을 읽고 있어요. 큰 파일이면 조금 걸릴 수 있으니 기다려 주세요!";
+  else if (analyzing) tip = "AI와 함께 대표 파일을 살펴보는 중이에요. 잠시만요!";
+  else if (state.step === 2) {
+    tip =
+      analysis?.ai.status === "failed"
+        ? "앗, 이번에는 제가 양식을 읽지 못했어요. 아래 표에서 직접 눌러 골라 주시겠어요?"
+        : "제가 대표 파일을 살펴보고 추천해 봤어요. 맞으면 Yes, 아니면 No를 눌러 주세요!";
+  } else if (state.step === 3) tip = "합치기 전에 확인할 게 있어요. 제외되는 파일과 겹친 키를 살펴봐 주세요.";
+  else if (state.step === 4) tip = "다 모았어요! 바뀐 칸을 확인하고 결과 파일을 내려받으세요.";
+
+  const howToDialog = <HowToDialog open={howTo.open} focus={howTo.focus} onClose={() => setHowTo((current) => ({ ...current, open: false }))} />;
+  const openHowTo = (focus: "steps" | "privacy") => setHowTo({ open: true, focus });
+
+  if (view === "home") {
+    return (
+      <>
+        <HomeHero onStart={() => enterWork(false)} onStartTemplate={() => enterWork(true)} onHowTo={openHowTo} />
+        {howToDialog}
+      </>
+    );
+  }
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-medium text-zinc-900 dark:text-zinc-50">Excel 범용 취합 프로그램</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">여러 부서의 엑셀 파일을 마스터 표 하나로 모읍니다.</p>
-      </header>
-
-      <StepIndicator current={state.step} />
-
-      <main className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        {error && <AlertBox tone="error">{error}</AlertBox>}
-
-        {reading && <ProgressPanel title="파일을 읽는 중입니다" done={reading.done} total={reading.total} current={reading.current} />}
-
-        {analyzing && (
-          <section className="flex flex-col items-center gap-3 py-10 text-center" aria-live="polite" aria-busy="true">
-            <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">AI가 대표 파일의 양식을 분석하는 중입니다</p>
-            <div className="h-2 w-full max-w-md animate-pulse rounded-full bg-blue-600/60" />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">응답이 없으면 10초 뒤 한 번 더 시도하고, 그래도 안 되면 직접 선택하도록 넘어갑니다.</p>
-          </section>
-        )}
-
-        {state.step === 1 && !reading && !analyzing && (
-          <FileSelectStep
-            master={selection.master}
-            departments={selection.departments}
-            containsPersonalInfo={selection.containsPersonalInfo}
-            notices={selection.notices}
-            onSelectMaster={(file) =>
-              updateSelection((current) => {
-                const result = selectMasterFile(file, current.departments);
-                return {
-                  ...current,
-                  master: result.master ?? current.master,
-                  departments: result.departments,
-                  notices: result.notices,
-                };
-              })
-            }
-            onClearMaster={() => updateSelection((current) => ({ ...current, master: null, notices: [] }))}
-            onAddDepartments={(files, fromFolder) =>
-              updateSelection((current) => {
-                const result = addDepartmentFiles(current.departments, files, current.master, { fromFolder });
-                return { ...current, departments: result.files, notices: result.notices };
-              })
-            }
-            onRemoveDepartment={(index) =>
-              updateSelection((current) => ({
-                ...current,
-                departments: current.departments.filter((_, i) => i !== index),
-                notices: [],
-              }))
-            }
-            onClearDepartments={() => updateSelection((current) => ({ ...current, departments: [], notices: [] }))}
-            onPersonalInfoChange={(checked) => updateSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
-          />
-        )}
-        {state.step === 2 && analysis && conditions && !analyzing && (
-          <ConditionStep
-            representative={analysis.representative}
-            previewSheetName={conditions.previewSheet}
-            decisions={conditions.decisions}
-            mode={conditions.mode}
-            unreadableCount={analysis.unreadable.length}
-            aiPayload={analysis.aiPayload}
-            unsupportedParts={analysis.unsupportedParts}
-            aiFailure={analysis.ai.status === "failed" ? failureMessage(analysis.ai.reason) : null}
-            recommendation={analysis.ai.status === "ok" ? analysis.ai.recommendation : null}
-            onAcceptRecommendation={acceptRecommendationFor}
-            onRejectRecommendation={rejectRecommendationFor}
-            canPickAnother={canPickAnother(analysis.departments)}
-            onPickAnotherRepresentative={pickAnotherRepresentative}
-            onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
-            onConfirmSheet={() => updateDecisions((decisions) => chooseSheet(decisions, conditions.previewSheet), "keyColumn")}
-            onModeChange={(mode) => setConditions((current) => (current ? { ...current, mode } : current))}
-            onPickColumn={(column) =>
-              conditions.mode === "keyColumn"
-                ? updateDecisions((decisions) => pickKeyColumn(decisions, column), "targetColumns")
-                : updateDecisions((decisions) => toggleTargetColumn(decisions, column))
-            }
-            onPickRow={(row) =>
-              conditions.mode === "headerRow"
-                ? updateDecisions((decisions) => pickRow(decisions, "headerRow", row), "dataStartRow")
-                : updateDecisions((decisions) => pickRow(decisions, "dataStartRow", row))
-            }
-          />
-        )}
-        {state.step === 3 && inspection && (
-          <InspectionStep
-            inspection={inspection}
-            duplicateChoices={duplicateChoices}
-            onChooseAll={(strategy) => setDuplicateChoices(chooseForAll(strategy))}
-            onChoosePerKey={() => setDuplicateChoices((current) => switchToPerKey(current))}
-            onChooseKey={(key, strategy) => setDuplicateChoices((current) => chooseForKey(current, key, strategy))}
-          />
-        )}
-        {state.step === 4 && outcome && (
-          <ResultStep
-            result={outcome.result}
-            duplicateChoices={duplicateChoices}
-            unsupportedParts={analysis?.unsupportedParts ?? []}
-            applyFormat={applyFormat}
-            onApplyFormatChange={setApplyFormat}
-            downloading={downloading}
-            downloadError={downloadError}
-            onDownload={() => void downloadResult()}
-          />
-        )}
-      </main>
-
-      <StepNavigation
-        step={state.step}
-        canGoNext={blockedReason === null}
-        blockedReason={blockedReason ?? undefined}
-        nextLabel={state.step === 3 && inspection && inspection.excludedFiles.length > 0 ? "제외하고 계속" : undefined}
-        onPrev={() => move("prev")}
-        onNext={() => {
-          if (state.step === 1) void startAnalysis();
-          else if (state.step === 2) startInspection();
-          else if (state.step === 3 && inspection && runConsolidation(inspection, duplicateChoices)) move("next");
-        }}
-        onReset={() => move("reset")}
+    <div className="flex min-h-screen flex-1 flex-col bg-paper">
+      <SiteNav
+        variant="light"
+        links={[{ label: "사용 방법", onClick: () => openHowTo("steps") }]}
+        cta={{ label: "내 파일은 안전한가요?", onClick: () => openHowTo("privacy") }}
+        onLogo={goHome}
       />
 
-      <footer className="text-center text-xs text-zinc-500 dark:text-zinc-500">
-        엑셀 파일은 서버에 저장되지 않고 이 브라우저 안에서만 처리됩니다.
-      </footer>
+      <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-5 px-4 pb-12 pt-20 sm:px-6 sm:pt-24 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
+        <MascotGuide tip={tip} />
+
+        <div className="flex min-w-0 flex-col gap-5">
+          <StepIndicator current={state.step} />
+
+          <main className={`${card} flex min-w-0 flex-col gap-4`}>
+            {error && <AlertBox tone="error">{error}</AlertBox>}
+
+            {reading && <ProgressPanel title="파일을 읽는 중입니다" done={reading.done} total={reading.total} current={reading.current} />}
+
+            {analyzing && (
+              <section className="flex flex-col items-center gap-3 py-10 text-center" aria-live="polite" aria-busy="true">
+                <p className="text-base font-medium text-ink">AI가 대표 파일의 양식을 분석하는 중입니다</p>
+                <div className="h-2 w-full max-w-md animate-pulse rounded-full bg-brand/60" />
+                <p className="text-xs text-ink-soft">응답이 없으면 10초 뒤 한 번 더 시도하고, 그래도 안 되면 직접 선택하도록 넘어갑니다.</p>
+              </section>
+            )}
+
+            {state.step === 1 && !reading && !analyzing && (
+              <FileSelectStep
+                master={selection.master}
+                departments={selection.departments}
+                containsPersonalInfo={selection.containsPersonalInfo}
+                notices={selection.notices}
+                templateOpen={openTemplate}
+                onSelectMaster={(file) =>
+                  updateSelection((current) => {
+                    const result = selectMasterFile(file, current.departments);
+                    return {
+                      ...current,
+                      master: result.master ?? current.master,
+                      departments: result.departments,
+                      notices: result.notices,
+                    };
+                  })
+                }
+                onClearMaster={() => updateSelection((current) => ({ ...current, master: null, notices: [] }))}
+                onAddDepartments={(files, fromFolder) =>
+                  updateSelection((current) => {
+                    const result = addDepartmentFiles(current.departments, files, current.master, { fromFolder });
+                    return { ...current, departments: result.files, notices: result.notices };
+                  })
+                }
+                onRemoveDepartment={(index) =>
+                  updateSelection((current) => ({
+                    ...current,
+                    departments: current.departments.filter((_, i) => i !== index),
+                    notices: [],
+                  }))
+                }
+                onClearDepartments={() => updateSelection((current) => ({ ...current, departments: [], notices: [] }))}
+                onPersonalInfoChange={(checked) => updateSelection((current) => ({ ...current, containsPersonalInfo: checked }))}
+              />
+            )}
+            {state.step === 2 && analysis && conditions && !analyzing && (
+              <ConditionStep
+                representative={analysis.representative}
+                previewSheetName={conditions.previewSheet}
+                decisions={conditions.decisions}
+                mode={conditions.mode}
+                unreadableCount={analysis.unreadable.length}
+                aiPayload={analysis.aiPayload}
+                unsupportedParts={analysis.unsupportedParts}
+                aiFailure={analysis.ai.status === "failed" ? failureMessage(analysis.ai.reason) : null}
+                recommendation={analysis.ai.status === "ok" ? analysis.ai.recommendation : null}
+                onAcceptRecommendation={acceptRecommendationFor}
+                onRejectRecommendation={rejectRecommendationFor}
+                canPickAnother={canPickAnother(analysis.departments)}
+                onPickAnotherRepresentative={pickAnotherRepresentative}
+                onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
+                onConfirmSheet={() => updateDecisions((decisions) => chooseSheet(decisions, conditions.previewSheet), "keyColumn")}
+                onModeChange={(mode) => setConditions((current) => (current ? { ...current, mode } : current))}
+                onPickColumn={(column) =>
+                  conditions.mode === "keyColumn"
+                    ? updateDecisions((decisions) => pickKeyColumn(decisions, column), "targetColumns")
+                    : updateDecisions((decisions) => toggleTargetColumn(decisions, column))
+                }
+                onPickRow={(row) =>
+                  conditions.mode === "headerRow"
+                    ? updateDecisions((decisions) => pickRow(decisions, "headerRow", row), "dataStartRow")
+                    : updateDecisions((decisions) => pickRow(decisions, "dataStartRow", row))
+                }
+              />
+            )}
+            {state.step === 3 && inspection && (
+              <InspectionStep
+                inspection={inspection}
+                duplicateChoices={duplicateChoices}
+                onChooseAll={(strategy) => setDuplicateChoices(chooseForAll(strategy))}
+                onChoosePerKey={() => setDuplicateChoices((current) => switchToPerKey(current))}
+                onChooseKey={(key, strategy) => setDuplicateChoices((current) => chooseForKey(current, key, strategy))}
+              />
+            )}
+            {state.step === 4 && outcome && (
+              <ResultStep
+                result={outcome.result}
+                duplicateChoices={duplicateChoices}
+                unsupportedParts={analysis?.unsupportedParts ?? []}
+                applyFormat={applyFormat}
+                onApplyFormatChange={setApplyFormat}
+                downloading={downloading}
+                downloadError={downloadError}
+                onDownload={() => void downloadResult()}
+              />
+            )}
+          </main>
+
+          <StepNavigation
+            step={state.step}
+            canGoNext={blockedReason === null}
+            blockedReason={blockedReason ?? undefined}
+            nextLabel={state.step === 3 && inspection && inspection.excludedFiles.length > 0 ? "제외하고 계속" : undefined}
+            onPrev={() => move("prev")}
+            onNext={() => {
+              if (state.step === 1) void startAnalysis();
+              else if (state.step === 2) startInspection();
+              else if (state.step === 3 && inspection && runConsolidation(inspection, duplicateChoices)) move("next");
+            }}
+            onReset={() => move("reset")}
+          />
+        </div>
+      </div>
+
+      <footer className="px-4 pb-8 text-center text-xs text-ink-soft">엑셀 파일은 서버에 저장되지 않고 이 브라우저 안에서만 처리됩니다.</footer>
+      {howToDialog}
     </div>
   );
 }

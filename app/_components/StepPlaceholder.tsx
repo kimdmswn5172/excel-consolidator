@@ -12,14 +12,14 @@ export function StepPlaceholder({ title, description, items, plannedTask }: Prop
   return (
     <section className="flex flex-col gap-4" aria-labelledby="step-title">
       <div>
-        <h2 id="step-title" className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+        <h2 id="step-title" className="text-lg font-medium text-ink">
           {title}
         </h2>
-        <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">{description}</p>
+        <p className="mt-1 text-sm leading-6 text-ink-soft">{description}</p>
       </div>
-      <div className="rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
-        <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">이 화면에 들어갈 것</p>
-        <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-2xl border border-dashed border-ink/10 p-4">
+        <p className="mb-2 text-sm font-medium text-ink">이 화면에 들어갈 것</p>
+        <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-ink-soft">
           {items.map((item) => (
             <li key={item}>{item}</li>
           ))}

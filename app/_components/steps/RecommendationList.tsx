@@ -13,7 +13,7 @@ type Props = {
 };
 
 const yesNo =
-  "rounded-lg border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:border-blue-600 aria-pressed:bg-blue-600 aria-pressed:text-white border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800";
+  "rounded-full border border-ink/15 bg-white px-5 py-1.5 text-sm font-medium text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-white";
 
 export function RecommendationList({ recommendation, decisions, onAccept, onReject }: Props) {
   return (
@@ -27,20 +27,20 @@ export function RecommendationList({ recommendation, decisions, onAccept, onReje
         const current = decisionText(decisions, key);
 
         return (
-          <li key={key} className="flex flex-col gap-2 rounded-lg border border-zinc-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
+          <li key={key} className="flex flex-col gap-2 rounded-2xl border border-ink/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">{CONDITION_LABELS[key]}</span>
+              <span className="text-sm text-ink-soft">{CONDITION_LABELS[key]}</span>
               <span className="flex flex-wrap items-center gap-2 text-sm">
                 {text === null ? (
-                  <span className="font-medium text-zinc-500 dark:text-zinc-400">추천 불가</span>
+                  <span className="font-medium text-ink-soft">추천 불가</span>
                 ) : (
                   <>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">AI 추천: {text}</span>
+                    <span className="font-medium text-ink">AI 추천: {text}</span>
                     <span
                       className={
                         meta.status === "needs-check"
-                          ? "rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                          : "rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                          ? "rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900"
+                          : "rounded-full bg-ink/5 px-2 py-0.5 text-xs text-ink"
                       }
                     >
                       신뢰도 {meta.confidence}%{meta.status === "needs-check" ? ` ⚠ ${NEEDS_CHECK_LABEL}` : ""}
@@ -48,7 +48,7 @@ export function RecommendationList({ recommendation, decisions, onAccept, onReje
                   </>
                 )}
               </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-ink-soft">
                 {decision.state === "confirmed"
                   ? `확정: ${current} (${acceptedByAi ? "AI 추천 그대로" : "직접 선택"})`
                   : blocked && text !== null
