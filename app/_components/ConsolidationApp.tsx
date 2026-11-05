@@ -315,8 +315,7 @@ export function ConsolidationApp() {
     <div className="flex min-h-screen flex-1 flex-col bg-paper">
       <SiteNav
         variant="light"
-        links={[{ label: "사용 방법", onClick: () => openHowTo("steps") }]}
-        cta={{ label: "내 파일은 안전한가요?", onClick: () => openHowTo("privacy") }}
+        links={[{ label: "사용 방법 · 개인정보 안내", onClick: () => openHowTo("steps") }]}
         onLogo={goHome}
       />
 

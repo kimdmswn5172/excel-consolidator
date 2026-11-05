@@ -76,11 +76,9 @@ export function HomeHero({ onStart, onStartTemplate, onHowTo }: Props) {
           <button type="button" onClick={onStartTemplate} className={whitePill}>
             AI로 양식 만들기
           </button>
+          {/* 사용 방법과 개인정보 안내는 같은 창에 들어 있어서 버튼 하나로 합쳤다 */}
           <button type="button" onClick={() => onHowTo("steps")} className={whitePill}>
-            사용 방법 보기
-          </button>
-          <button type="button" onClick={() => onHowTo("privacy")} className={whitePill}>
-            내 파일은 안전한가요?
+            사용 방법 · 개인정보 안내
           </button>
           <button
             type="button"

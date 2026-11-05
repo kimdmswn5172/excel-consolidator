@@ -10,13 +10,14 @@
 // 화면 갱신(React) 없이 요소의 스타일을 직접 바꿔서 부드럽게 한다.
 import { useEffect, useRef } from "react";
 import {
+  FEATURES,
   SIDE_OFFSET,
   blinkScale,
   clamp,
-  faceShift,
   headAngles,
   idleTarget,
   pitchFromPointer,
+  projectFeature,
   sideBlend,
   stepSpring,
   yawFromPointer,
@@ -25,12 +26,11 @@ import {
 
 // 그림 안에서의 위치(그림 한 변에 대한 비율). 앞모습 사진을 재서 정했다.
 const NECK_PIVOT = "49% 60.5%"; // 머리가 돌아가는 축(목)
-// 머리 조각: 위쪽에서 둥근 머리 아래 곡선까지만 잘라 쓴다(어깨가 머리와 함께 딸려 돌아서 삐져나오는 것을 막는다). 몸 조각은 59%부터 써서 이음새를 겹쳐 가린다.
-const HEAD_CLIP = "polygon(0% 0%, 100% 0%, 100% 57%, 82% 58.5%, 70% 58.8%, 64% 60.2%, 58% 61.4%, 49% 61.9%, 40% 61.6%, 33% 60.4%, 28% 58.5%, 25.5% 55.5%, 0% 55.5%)";
-const BODY_CUT = 59;
-const FACE_ORIGIN = "49.9% 48%";
-const EYES_ORIGIN = "50% 47.5%";
-const FACE_MASK = "radial-gradient(ellipse 21.5% 19.5% at 47.1% 43%, #000 76%, transparent 100%)"; // 머리 모양. 얼굴이 머리 밖으로 나가면 사라진다
+// 머리 조각을 자르는 선: 사진을 재서 구한 실제 턱선을 따라간다(턱 아래 목·어깨는 몸 조각에 남긴다). 귀는 통째로 머리 조각에 들어간다.
+// 몸 조각은 턱 아래(64%)부터 쓰되, 가운데 목 부분만 59%부터 써서 이음새를 겹쳐 가린다. (옆은 64%부터라서 머리가 움직여도 머리 테두리 조각이 삐져나오지 않는다)
+const HEAD_CLIP =
+  "polygon(0% 0%, 100% 0%, 100% 65%, 68% 65%, 68% 59.4%, 66% 60.5%, 64% 61.3%, 62% 62.1%, 58% 62.7%, 52% 63.6%, 47% 63.6%, 42% 63.2%, 36% 61.2%, 34% 60.5%, 30% 58.1%, 30% 65%, 0% 65%)";
+const BODY_CLIP = "polygon(0% 64%, 40% 64%, 41% 59%, 59% 59%, 60% 64%, 100% 64%, 100% 100%, 0% 100%)";
 const IDLE_AFTER_MS = 3500; // 커서가 이만큼 가만히 있으면 혼자 두리번거린다
 
 const layer = "absolute inset-0 h-full w-full object-contain";
@@ -41,8 +41,7 @@ export function MascotStage({ className = "" }: { className?: string }) {
   const front = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLImageElement>(null);
   const head = useRef<HTMLDivElement>(null);
-  const face = useRef<HTMLDivElement>(null);
-  const eyes = useRef<HTMLImageElement>(null);
+  const features = useRef<(HTMLImageElement | null)[]>([]); // FEATURES와 같은 순서
   const side = useRef<HTMLImageElement>(null);
   const shadow = useRef<HTMLDivElement>(null);
 
@@ -117,7 +116,9 @@ export function MascotStage({ className = "" }: { className?: string }) {
       }
 
       const { side: sideWeight, mirrored } = sideBlend(yaw.x);
-      const { dx, dy, scaleX } = faceShift(yaw.x, pitch.x);
+      const featureYaw = clamp(yaw.x * 0.85, -72, 72); // 얼굴 조각이 머리 표면을 따라 도는 각도
+      const featurePitch = pitch.x * 0.26;
+      const blink = blinkScale(now - blinkStart);
       const angles = headAngles(yaw.x, pitch.x);
       const lift = clamp(-bounce.x, -0.1, 0.3); // 위로 뛴 정도
       const stretch = 1 + clamp(-bounce.v, -3, 3) * 0.012; // 올라갈 때 길쭉, 내려올 때 납작
@@ -136,8 +137,13 @@ export function MascotStage({ className = "" }: { className?: string }) {
           `perspective(${Math.round(size * 1.6)}px) translate(${(yaw.x * 0.022).toFixed(3)}%, ${(pitch.x * 0.6).toFixed(3)}%) ` +
           `rotateY(${angles.rotateY.toFixed(2)}deg) rotateX(${angles.rotateX.toFixed(2)}deg) rotateZ(${(angles.rotateZ + lean).toFixed(2)}deg)`;
       }
-      if (face.current) face.current.style.transform = `translate(${(dx * 100).toFixed(3)}%, ${(dy * 100).toFixed(3)}%) scaleX(${scaleX.toFixed(4)})`;
-      if (eyes.current) eyes.current.style.transform = `scaleY(${blinkScale(now - blinkStart).toFixed(3)})`;
+      FEATURES.forEach((feature, index) => {
+        const element = features.current[index];
+        if (!element) return;
+        const p = projectFeature(feature, featureYaw, featurePitch);
+        element.style.opacity = p.opacity.toFixed(3);
+        element.style.transform = `translate(${(p.dx * 100).toFixed(3)}%, ${(p.dy * 100).toFixed(3)}%) scale(${p.scaleX.toFixed(4)}, ${(p.scaleY * (feature.isEye ? blink : 1)).toFixed(4)})`;
+      });
       if (shadow.current) {
         shadow.current.style.transform = `translateX(-50%) scaleX(${(1 - lift * 0.9).toFixed(3)})`;
         shadow.current.style.opacity = String(Math.max(0.12, 0.42 - lift * 0.9));
@@ -167,15 +173,24 @@ export function MascotStage({ className = "" }: { className?: string }) {
       <div ref={front} className="absolute inset-0" aria-hidden="true">
         <div ref={rig} className="absolute inset-0" style={{ transformOrigin: "50% 87%" }}>
           {/* eslint-disable @next/next/no-img-element -- 크기가 정해진 작은 정적 그림이라 일반 img로 충분하다 */}
-          <img ref={body} src="/mascot/base.webp" alt="" width={1000} height={1000} draggable={false} className={layer} style={{ clipPath: `inset(${BODY_CUT}% 0 0 0)`, transformOrigin: "50% 90%" }} />
+          <img ref={body} src="/mascot/base.webp" alt="" width={1000} height={1000} draggable={false} className={layer} style={{ clipPath: BODY_CLIP, transformOrigin: "50% 90%" }} />
           <div ref={head} className="absolute inset-0 will-change-transform" style={{ transformOrigin: NECK_PIVOT }}>
             <img src="/mascot/base.webp" alt="" width={1000} height={1000} draggable={false} className={layer} style={{ clipPath: HEAD_CLIP }} />
-            <div className="absolute inset-0" style={{ maskImage: FACE_MASK, WebkitMaskImage: FACE_MASK }}>
-              <div ref={face} className="absolute inset-0 will-change-transform" style={{ transformOrigin: FACE_ORIGIN }}>
-                <img src="/mascot/face.webp" alt="" width={1000} height={1000} draggable={false} className={layer} />
-                <img ref={eyes} src="/mascot/eyes.webp" alt="" width={1000} height={1000} draggable={false} className={layer} style={{ transformOrigin: EYES_ORIGIN }} />
-              </div>
-            </div>
+            {FEATURES.map((feature, index) => (
+              <img
+                key={feature.id}
+                ref={(element) => {
+                  features.current[index] = element;
+                }}
+                src={`/mascot/${feature.file}.webp`}
+                alt=""
+                width={1000}
+                height={1000}
+                draggable={false}
+                className={`${layer} will-change-transform`}
+                style={{ transformOrigin: `${feature.x * 100}% ${feature.y * 100}%` }}
+              />
+            ))}
           </div>
           {/* eslint-enable @next/next/no-img-element */}
         </div>
