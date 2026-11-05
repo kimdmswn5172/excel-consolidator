@@ -27,7 +27,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-medium text-ink">3단계. 점검 결과</h2>
+        <h2 className="text-2xl text-ink">3단계. 점검 결과</h2>
         <p className="text-sm text-ink-soft">
           취합하기 전에 파일을 점검했습니다. 취합할 수 있는 부서 파일은 <strong>{passedDepartments.length}개</strong>입니다.
         </p>
@@ -52,7 +52,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
 
       {excludedFiles.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium text-ink">취합에서 제외된 파일 ({excludedFiles.length}개)</h3>
+          <h3 className="text-base text-ink">취합에서 제외된 파일 ({excludedFiles.length}개)</h3>
           <ul className="flex flex-col gap-2">
             {excludedFiles.map((file) => (
               <li
@@ -74,7 +74,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
 
       {duplicateKeys.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium text-ink">중복된 키 ({duplicateKeys.length}건)</h3>
+          <h3 className="text-base text-ink">중복된 키 ({duplicateKeys.length}건)</h3>
           <p className="text-sm text-ink-soft">
             같은 키가 여러 번 나옵니다. 어느 값을 쓸지 프로그램이 마음대로 정하지 않습니다. 처리 방법을 골라 주세요.
           </p>
@@ -107,7 +107,7 @@ export function InspectionStep({ inspection, duplicateChoices, onChooseAll, onCh
           </ul>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-ink">처리 방법</legend>
+            <legend className="text-base text-ink">처리 방법</legend>
             {STRATEGY_ORDER.map((strategy) => (
               <label key={strategy} className="flex items-start gap-2 text-sm">
                 <input

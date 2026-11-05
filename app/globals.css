@@ -9,7 +9,9 @@
   --color-brand: #e4432a; /* 강조색 (마스코트의 빨강) */
   --color-brand-dark: #c4351e;
   --color-blush: #f9e0da; /* 연한 분홍 (마스코트의 볼) */
-  --font-sans: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  --font-sans: var(--font-pretendard), "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  /* font-medium은 글씨 굵기 600(SemiBold)으로 쓴다. 버튼·라벨·메뉴가 본문(400)과 확실히 구분되게 하기 위해서다. */
+  --font-weight-medium: 600;
 }
 
 /* 다크 모드는 지원하지 않는다. (운영체제가 어두운 화면이어도 같은 모습으로 보이게 한다) */
@@ -26,8 +28,32 @@ html {
 body {
   background: var(--color-paper);
   color: var(--color-ink);
-  /* 영문은 헬베티카 계열, 한글은 운영체제의 한글 글꼴(맑은 고딕 등)을 쓴다. 별도 글꼴 파일을 내려받지 않는다. */
+  /* Pretendard를 쓴다. 파일을 프로젝트에 포함해 두어서 어느 PC에서나 똑같이 보인다. */
   font-family: var(--font-sans);
+  font-weight: 400;
+  letter-spacing: -0.01em; /* 한글은 자간을 살짝 좁히면 더 단정하게 보인다 */
+}
+
+/* 글씨 굵기 단계: 제목일수록 굵게. 가장 큰 제목 900(Black) > 단계 제목 800(ExtraBold) > 소제목 700(Bold) > 버튼·라벨 600(SemiBold) > 본문 400(Regular) */
+@layer base {
+  h1 {
+    font-weight: 900;
+    letter-spacing: -0.035em;
+  }
+  h2 {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  h3,
+  h4,
+  legend {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  strong,
+  b {
+    font-weight: 700;
+  }
 }
 
 /* 입력 칸에 키보드로 이동했을 때 보이는 테두리 */

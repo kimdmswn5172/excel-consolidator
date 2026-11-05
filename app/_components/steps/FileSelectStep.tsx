@@ -56,7 +56,7 @@ export function FileSelectStep(props: Props) {
   return (
     <section className="flex flex-col gap-6" aria-labelledby="step-title">
       <div>
-        <h2 id="step-title" className="text-lg font-medium text-ink">
+        <h2 id="step-title" className="text-2xl text-ink">
           1단계. 파일 선택
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-soft">
@@ -76,7 +76,7 @@ export function FileSelectStep(props: Props) {
 
       {/* 마스터 표 */}
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium text-ink">마스터 표</h3>
+        <h3 className="text-base text-ink">마스터 표</h3>
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/10 p-3">
           <button type="button" className={button} onClick={() => masterInput.current?.click()}>
             {master ? "다른 파일로 바꾸기" : "파일 선택"}
@@ -112,7 +112,7 @@ export function FileSelectStep(props: Props) {
       {/* 부서 파일 */}
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-medium text-ink">
+          <h3 className="text-base text-ink">
             부서 파일{" "}
             <span className="font-normal text-ink-soft">
               ({departments.length} / {MAX_DEPARTMENT_FILES}개)
@@ -201,7 +201,7 @@ export function FileSelectStep(props: Props) {
 
       {/* 개인정보 확인 */}
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium text-ink">개인정보 확인</h3>
+        <h3 className="text-base text-ink">개인정보 확인</h3>
         <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-ink/10 p-3">
           <input
             type="checkbox"

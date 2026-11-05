@@ -12,7 +12,7 @@ export function StepPlaceholder({ title, description, items, plannedTask }: Prop
   return (
     <section className="flex flex-col gap-4" aria-labelledby="step-title">
       <div>
-        <h2 id="step-title" className="text-lg font-medium text-ink">
+        <h2 id="step-title" className="text-2xl text-ink">
           {title}
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-soft">{description}</p>

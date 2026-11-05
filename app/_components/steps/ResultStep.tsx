@@ -28,7 +28,7 @@ function formatValue(value: CellValue): string {
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium text-ink">
+      <h3 className="text-base text-ink">
         {title} ({count}건)
       </h3>
       {children}
@@ -65,7 +65,7 @@ export function ResultStep({ result, duplicateChoices, unsupportedParts, applyFo
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-medium text-ink">4단계. 취합 결과</h2>
+        <h2 className="text-2xl text-ink">4단계. 취합 결과</h2>
         <p className="text-sm text-ink-soft">취합을 마쳤습니다. 원본 파일은 바뀌지 않았고, 결과는 새 파일로 내려받습니다.</p>
       </div>
 

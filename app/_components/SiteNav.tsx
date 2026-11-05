@@ -28,7 +28,7 @@ export function SiteNav({ variant, links, cta, onLogo }: Props) {
     <>
       <nav className={`fixed inset-x-0 top-0 z-20 flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5 ${color}`} aria-label="주 메뉴">
         <button type="button" onClick={onLogo} className="flex items-center gap-2 text-left" aria-label="처음 화면으로">
-          <span className="text-[21px] font-medium tracking-tight sm:text-[26px]">취합 도우미</span>
+          <span className="text-[21px] font-black tracking-tight sm:text-[26px]">취합 도우미</span>
           <span className="select-none text-[25px] text-brand sm:text-[30px]" aria-hidden="true">
             ✳︎
           </span>

@@ -49,7 +49,7 @@ export function HowToDialog({ open, focus = "steps", onClose }: Props) {
     >
       <div className="flex flex-col gap-6 p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-xl font-medium">이렇게 쓰면 돼요</h2>
+          <h2 className="text-2xl">이렇게 쓰면 돼요</h2>
           <button type="button" onClick={onClose} aria-label="닫기" className="-mr-2 -mt-2 rounded-full p-2 text-xl leading-none text-ink/50 hover:bg-ink/5 hover:text-ink">
             ✕
           </button>
@@ -60,7 +60,7 @@ export function HowToDialog({ open, focus = "steps", onClose }: Props) {
             <li key={title} className="flex gap-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-medium text-white">{index + 1}</span>
               <span className="text-sm leading-6">
-                <strong className="font-medium">{title}</strong>
+                <strong>{title}</strong>
                 <span className="block text-ink-soft">{text}</span>
               </span>
             </li>
@@ -68,7 +68,7 @@ export function HowToDialog({ open, focus = "steps", onClose }: Props) {
         </ol>
 
         <section id="howto-privacy" className="rounded-2xl bg-blush/60 p-4">
-          <h3 className="mb-2 text-sm font-medium">내 파일은 이렇게 다뤄요</h3>
+          <h3 className="mb-2 text-base">내 파일은 이렇게 다뤄요</h3>
           <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-6 text-ink-soft">
             {PRIVACY.map((line) => (
               <li key={line}>{line}</li>

@@ -55,7 +55,7 @@ export function ConditionStep(props: Props) {
   return (
     <section className="flex flex-col gap-5" aria-labelledby="step-title">
       <div>
-        <h2 id="step-title" className="text-lg font-medium text-ink">
+        <h2 id="step-title" className="text-2xl text-ink">
           2단계. 조건 확인
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-soft">
