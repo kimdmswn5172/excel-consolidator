@@ -1,10 +1,11 @@
 "use client";
 
 // 2단계. 조건 확인 (직접 선택 모드): 대표 파일의 미리보기 표에서 취합 조건 다섯 가지를 직접 정한다. (DESIGN 2단계)
-// AI 추천(Yes/No)은 PLAN.md 22번에서 이 화면 위에 얹는다.
+// AI 추천이 있으면 항목마다 Yes/No로 확정하고, No이거나 추천이 없으면(실패·추천 불가) 미리보기에서 직접 고른다.
 import { CONDITION_LABELS, CONDITION_ORDER, decisionText } from "../../_lib/conditions";
 import type { AnalyzePayload } from "../../_lib/privacy/buildAnalyzeRequest";
-import type { ConditionDecisions, ConditionKey, WorkbookData } from "../../_lib/types";
+import type { AiRecommendation, ConditionDecisions, ConditionKey, WorkbookData } from "../../_lib/types";
+import { RecommendationList } from "./RecommendationList";
 import { AlertBox } from "../AlertBox";
 import { SheetPreview, type PickMode } from "../SheetPreview";
 
@@ -16,6 +17,9 @@ type Props = {
   unreadableCount: number; // 읽지 못한 부서 파일 수 (3단계에서 자세히 보여 준다)
   aiPayload: AnalyzePayload; // AI에 보낼 데이터 (무엇을 보내는지 사용자에게 알려 준다)
   aiFailure: string | null; // AI 분석이 실패했을 때의 안내 문장 (없으면 null)
+  recommendation: AiRecommendation | null; // AI 추천 (실패했으면 null)
+  onAcceptRecommendation: (key: ConditionKey) => void; // 항목의 Yes
+  onRejectRecommendation: (key: ConditionKey) => void; // 항목의 No
   canPickAnother: boolean; // 대표 파일 후보가 2개 이상인지
   onPickAnotherRepresentative: () => void;
   onPreviewSheetChange: (sheetName: string) => void;
@@ -92,7 +96,16 @@ export function ConditionStep(props: Props) {
         <AlertBox tone="warning">읽지 못한 부서 파일이 {props.unreadableCount}개 있습니다. 3단계에서 이유와 함께 보여 드립니다.</AlertBox>
       )}
 
-      {/* 항목별 현재 값 */}
+      {/* AI 추천이 있으면 항목별 Yes/No, 없으면(실패) 현재 값만 보여 준다 */}
+      {props.recommendation && (
+        <RecommendationList
+          recommendation={props.recommendation}
+          decisions={decisions}
+          onAccept={props.onAcceptRecommendation}
+          onReject={props.onRejectRecommendation}
+        />
+      )}
+      {!props.recommendation && (
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {CONDITION_ORDER.map((key: ConditionKey) => {
           const text = decisionText(decisions, key);
@@ -116,6 +129,7 @@ export function ConditionStep(props: Props) {
           );
         })}
       </dl>
+      )}
 
       {/* 시트 고르기 */}
       <div className="flex flex-wrap items-center gap-3">

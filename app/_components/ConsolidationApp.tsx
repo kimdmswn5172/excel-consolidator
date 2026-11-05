@@ -23,9 +23,10 @@ import { inspectAll, type Inspection } from "../_lib/merge/inspectAll";
 import { buildAnalyzeRequest, type AnalyzePayload } from "../_lib/privacy/buildAnalyzeRequest";
 import { buildConsolidationResult } from "../_lib/merge/summarize";
 import { readSelection } from "../_lib/readSelection";
+import { acceptRecommendation, rejectRecommendation } from "../_lib/recommendations";
 import { canPickAnother, pickRepresentative } from "../_lib/representative";
 import { chooseForAll, chooseForKey, duplicatesBlockedReason, switchToPerKey } from "../_lib/duplicateChoices";
-import type { AiRecommendation, AnalyzeFailureReason, ConditionDecisions, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
+import type { AiRecommendation, AnalyzeFailureReason, ConditionDecisions, ConditionKey, ConsolidationResult, ConsolidationSettings, DuplicateChoices, SkippedFile, WorkbookData } from "../_lib/types";
 import { initialWizardState, wizardReducer } from "../_lib/wizard";
 import { AlertBox } from "./AlertBox";
 import { ProgressPanel } from "./ProgressPanel";
@@ -67,8 +68,11 @@ type Conditions = {
 };
 
 // 대표 파일을 정한 직후의 조건 상태: 아무것도 확정하지 않은 처음 모습
-function freshConditions(representative: WorkbookData): Conditions {
-  return { decisions: initialDecisions, previewSheet: representative.sheets[0]?.name ?? "", mode: "keyColumn" };
+// AI가 추천한 시트가 있으면 그 시트를 먼저 미리보기로 보여 준다.
+function freshConditions(representative: WorkbookData, ai: AiState): Conditions {
+  const recommended = ai.status === "ok" ? ai.recommendation.sheetName.value : null;
+  const previewSheet = representative.sheets.find((sheet) => sheet.name === recommended)?.name ?? representative.sheets[0]?.name ?? "";
+  return { decisions: initialDecisions, previewSheet, mode: "keyColumn" };
 }
 
 export function ConsolidationApp() {
@@ -195,7 +199,7 @@ export function ConsolidationApp() {
     const ai = await askAi(aiPayload);
     if (ai === null) return; // 기다리는 사이 [처음부터 다시]를 눌렀다
     setAnalysis({ master: result.master, departments: result.departments, unreadable: result.skipped, representative, aiPayload, ai });
-    setConditions(freshConditions(representative));
+    setConditions(freshConditions(representative, ai));
     move("next");
   }
 
@@ -220,7 +224,23 @@ export function ConsolidationApp() {
     const ai = await askAi(aiPayload);
     if (ai === null) return;
     setAnalysis({ ...analysis, representative, aiPayload, ai });
-    setConditions(freshConditions(representative));
+    setConditions(freshConditions(representative, ai));
+  }
+
+  // 항목의 Yes: AI 추천을 그대로 확정한다. 시트를 확정하면 미리보기도 그 시트로 바꾼다.
+  function acceptRecommendationFor(key: ConditionKey) {
+    if (analysis?.ai.status !== "ok") return;
+    const recommendation = analysis.ai.recommendation;
+    updateDecisions((decisions) => acceptRecommendation(decisions, recommendation, key));
+    if (key === "sheetName" && recommendation.sheetName.value !== null) {
+      const sheetName = recommendation.sheetName.value;
+      setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current));
+    }
+  }
+
+  // 항목의 No: 확정을 풀고 미리보기에서 직접 고르게 한다. (시트는 위의 "이 시트로 정하기"로 고른다)
+  function rejectRecommendationFor(key: ConditionKey) {
+    updateDecisions((decisions) => rejectRecommendation(decisions, key), key === "sheetName" ? undefined : (key as PickMode));
   }
 
   function updateDecisions(update: (decisions: ConditionDecisions) => ConditionDecisions, nextMode?: PickMode) {
@@ -304,6 +324,9 @@ export function ConsolidationApp() {
             unreadableCount={analysis.unreadable.length}
             aiPayload={analysis.aiPayload}
             aiFailure={analysis.ai.status === "failed" ? failureMessage(analysis.ai.reason) : null}
+            recommendation={analysis.ai.status === "ok" ? analysis.ai.recommendation : null}
+            onAcceptRecommendation={acceptRecommendationFor}
+            onRejectRecommendation={rejectRecommendationFor}
             canPickAnother={canPickAnother(analysis.departments)}
             onPickAnotherRepresentative={pickAnotherRepresentative}
             onPreviewSheetChange={(sheetName) => setConditions((current) => (current ? { ...current, previewSheet: sheetName } : current))}
