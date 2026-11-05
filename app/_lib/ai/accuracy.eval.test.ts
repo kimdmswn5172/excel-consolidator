@@ -1,5 +1,5 @@
 // AI 추천 정확도 측정 (PRD 3번: 서로 다른 연습용 양식 10종 중 90% 이상은 수정 없이 그대로 적용). (PLAN 23번)
-// 실제 AI를 10번 부르므로 ANTHROPIC_API_KEY가 있을 때만 돌아간다. 키가 없으면 건너뛴다.
+// 실제 AI를 10번 부르므로 OPENAI_API_KEY가 있을 때만 돌아간다. 키가 없으면 건너뛴다.
 // 키는 .env에 두고, 값을 화면에 찍지 않고 이렇게 실행한다:
 //   node --env-file=.env node_modules/vitest/vitest.mjs run app/_lib/ai/accuracy.eval.test.ts
 // 한 양식에서 시트·기준 열·대상 열·헤더 위치·데이터 시작 행을 하나라도 틀리거나 "추천 불가"이면 그 양식은 정확하지 않은 것으로 센다.
@@ -85,7 +85,7 @@ function matches(rec: AiRecommendation, truth: ConsolidationSettings): string[] 
   return diffs;
 }
 
-describe.skipIf(!process.env.ANTHROPIC_API_KEY)("AI 추천 정확도 (실제 AI 호출)", () => {
+describe.skipIf(!process.env.OPENAI_API_KEY)("AI 추천 정확도 (실제 AI 호출)", () => {
   it("연습용 양식 10종 중 90% 이상(9종)은 모든 항목이 정답과 같다", { timeout: 300_000 }, async () => {
     let correct = 0;
     const report: string[] = [];

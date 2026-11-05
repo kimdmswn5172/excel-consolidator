@@ -1,10 +1,9 @@
 // AI 분석 서버 쪽 규칙을 시험한다. 실제 AI는 부르지 않는다. 실행: npm run test
-import { APIConnectionError, APIConnectionTimeoutError, AuthenticationError, InternalServerError } from "@anthropic-ai/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../api/analyze/route";
 import type { AnalyzeRequest } from "../types";
 import { buildUserMessage } from "./buildPrompt";
-import { toFailureReason } from "./failureReason";
+import { reasonFromStatus } from "./openai";
 import { aiOutputSchema, analyzeRequestSchema, LIMITS } from "./schemas";
 import { toRecommendation } from "./toRecommendation";
 
@@ -95,13 +94,14 @@ describe("요청·응답 검사 규칙", () => {
   });
 });
 
-describe("toFailureReason", () => {
-  it("오류 종류를 실패 이유로 바꾼다", () => {
-    expect(toFailureReason(new APIConnectionTimeoutError())).toBe("timeout");
-    expect(toFailureReason(new APIConnectionError({ message: "x" }))).toBe("network");
-    expect(toFailureReason(new AuthenticationError(401, undefined, "x", new Headers()))).toBe("auth");
-    expect(toFailureReason(new InternalServerError(500, undefined, "x", new Headers()))).toBe("service");
-    expect(toFailureReason(new Error("그 밖"))).toBe("invalid-response");
+describe("reasonFromStatus", () => {
+  it("HTTP 상태 코드를 실패 이유로 바꾼다", () => {
+    expect(reasonFromStatus(401)).toBe("auth");
+    expect(reasonFromStatus(403)).toBe("auth");
+    expect(reasonFromStatus(504)).toBe("timeout");
+    expect(reasonFromStatus(429)).toBe("service"); // 사용량 한도·혼잡
+    expect(reasonFromStatus(500)).toBe("service");
+    expect(reasonFromStatus(400)).toBe("service");
   });
 });
 
@@ -121,7 +121,7 @@ describe("POST /api/analyze (AI를 부르지 않는 경로)", () => {
   });
 
   it("키가 없으면 AI를 부르지 않고 인증 실패로 돌려준다", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
     const response = await post(JSON.stringify(request));
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ ok: false, reason: "auth" });
