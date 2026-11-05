@@ -9,8 +9,8 @@ import type { ConsolidationSettings } from "../types";
 
 export type FormatSettings = Pick<ConsolidationSettings, "keyColumn" | "headerRow" | "dataStartRow">;
 
-const HEADER_FILL = "FFE8EEF7";
-const BORDER = { style: "thin", color: { argb: "FFBFC5CE" } } as const;
+export const HEADER_FILL = "FFE8EEF7";
+export const BORDER = { style: "thin", color: { argb: "FFBFC5CE" } } as const;
 const DEFAULT_WIDTH = 9;
 const MAX_WIDTH = 60;
 const WIDTH_SAMPLE_ROWS = 1000; // 열 너비는 데이터 위쪽 1000행만 보고 정한다 (큰 파일에서 느려지지 않게)

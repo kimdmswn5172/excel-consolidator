@@ -9,7 +9,10 @@ import { downloadFile } from "../_lib/excel/download";
 import { buildTemplateFile, templateFileName } from "../_lib/excel/buildTemplate";
 import { AlertBox } from "./AlertBox";
 
-type Draft = { title: string; keyName: string; fieldNames: string[] };
+// rowCount는 입력 칸의 글자 그대로 들고 있다가(지우는 중에도 편하게), 검사할 때 숫자로 바꾼다.
+type Draft = { title: string; keyName: string; fieldNames: string[]; rowCount: string };
+
+const toRowCount = (text: string) => (/^[0-9]+$/.test(text.trim()) ? Number(text.trim()) : Number.NaN);
 
 const input =
   "w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900";
@@ -29,18 +32,23 @@ export function TemplateMaker() {
     setError(null);
     const response = await requestTemplate(purpose);
     setAsking(false);
-    if (response.ok) setDraft(response.proposal);
+    if (response.ok) {
+      const { rowCount, ...rest } = response.proposal;
+      // 목적 글에 인원·건수가 있으면 그 숫자, 없으면 기본 행 수에서 시작한다. 사용자가 고칠 수 있다.
+      setDraft({ ...rest, rowCount: String(rowCount ?? TEMPLATE_LIMITS.defaultRows) });
+    }
     else setError(templateFailureMessage(response.reason));
   }
 
   async function download() {
-    if (!draft || building || templateBlockedReason(draft) !== null) return;
+    if (!draft || building || templateBlockedReason({ ...draft, rowCount: toRowCount(draft.rowCount) }) !== null) return;
     setBuilding(true);
     try {
       const bytes = await buildTemplateFile({
         title: draft.title.trim(),
         keyName: draft.keyName.trim(),
         fieldNames: draft.fieldNames.map((name) => name.trim()),
+        rowCount: toRowCount(draft.rowCount),
       });
       downloadFile(bytes, templateFileName());
     } catch (caught) {
@@ -51,7 +59,7 @@ export function TemplateMaker() {
   }
 
   const update = (change: Partial<Draft>) => setDraft((current) => (current ? { ...current, ...change } : current));
-  const blocked = draft ? templateBlockedReason(draft) : null;
+  const blocked = draft ? templateBlockedReason({ ...draft, rowCount: toRowCount(draft.rowCount) }) : null;
 
   return (
     <details className="rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
@@ -81,7 +89,7 @@ export function TemplateMaker() {
             {asking ? "AI가 제안하는 중…" : "양식 제안 받기"}
           </button>
           {!draft && (
-            <button type="button" onClick={() => setDraft({ title: "", keyName: "", fieldNames: [""] })} className={secondary}>
+            <button type="button" onClick={() => setDraft({ title: "", keyName: "", fieldNames: [""], rowCount: String(TEMPLATE_LIMITS.defaultRows) })} className={secondary}>
               직접 만들기
             </button>
           )}
@@ -98,6 +106,15 @@ export function TemplateMaker() {
             <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               기준 열 이름 (행을 구분하는 열, 예: 사번)
               <input value={draft.keyName} onChange={(event) => update({ keyName: event.target.value })} className={input} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+              행 수 (테두리와 연번을 넣을 칸 수, 예: 50명이면 50)
+              <input
+                inputMode="numeric"
+                value={draft.rowCount}
+                onChange={(event) => update({ rowCount: event.target.value })}
+                className={`${input} max-w-32`}
+              />
             </label>
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm text-zinc-700 dark:text-zinc-300">작성 열 (부서가 채울 항목)</legend>
@@ -122,7 +139,7 @@ export function TemplateMaker() {
             </fieldset>
 
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              파일 모양: 1행 제목, 3행 열 이름, 4행부터 빈 칸입니다. 기준 열(사번 등)의 값은 마스터 표에서 채워 주세요.
+              파일 모양: 1행 제목, 3행 열 이름(색이 들어갑니다), 4행부터 행 수만큼 테두리와 연번이 들어갑니다. 연번 열은 자동으로 맨 앞에 붙습니다. 기준 열(사번 등)의 값은 마스터 표에서 채워 주세요.
             </p>
             {blocked && <p className="text-sm text-amber-700 dark:text-amber-300">{blocked}</p>}
             <div>
