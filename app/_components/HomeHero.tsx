@@ -91,6 +91,14 @@ export function HomeHero({ onStart, onStartTemplate, onHowTo }: Props) {
               <path d="M8.5 2.5V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v5.5a1 1 0 0 0 1 1h.5" stroke="currentColor" />
             </svg>
           </button>
+          {/* 발표나 시연처럼 연습 파일이 없는 PC에서도 바로 내려받아 쓸 수 있게 한다 (public/samples/test-files.zip) */}
+          <a
+            href="/samples/test-files.zip"
+            download="테스트파일_원본.zip"
+            className="mx-[0.2em] mb-[0.4em] inline-flex items-center justify-center whitespace-nowrap rounded-full border border-white bg-transparent px-4 py-[0.35em] text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-white hover:text-black sm:px-5 sm:text-[15px]"
+          >
+            샘플 파일 내려받기
+          </a>
         </div>
       </main>
     </div>
