@@ -1,5 +1,5 @@
 # Vercel에 올리지 않을 것 (배포에 필요 없거나, 올라가면 안 되는 것)
 .env*
 trash-can
-samples
+/samples
 *.test.ts
